@@ -12,3 +12,6 @@ venv/
 *.tar
 data/lineager_server_data.sqlite
 data/runtime.sqlite
+data/*.png
+data/*.xml
+data/smoke-test/

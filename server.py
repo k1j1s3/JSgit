@@ -9,6 +9,7 @@ import zlib
 import base64
 import struct
 import sqlite3
+import sys
 from pathlib import Path
 
 from core import (
@@ -23,7 +24,7 @@ from core import (
 
 HOST = "0.0.0.0"
 PORT = 7867
-VERSION = "INVENTORY-EQUIPMENT-1.2"
+VERSION = "INVENTORY-EQUIPMENT-1.3"
 SEED1 = 0x412A6C59
 SEED2 = 0x5216255D
 SESSION_STARTED_AT = time.monotonic()
@@ -490,6 +491,9 @@ STORE_PAGE1 = unpack_packet_blob(STORE_PAGE1_B64)
 
 def handle(client, addr):
     print(f"[{time.strftime('%H:%M:%S')}] CLIENT CONNECT {addr[0]}:{addr[1]}")
+    # The client opens its login socket while the animated title screen is
+    # still visible. Leave enough time for app startup or human/ADB entry taps.
+    client.settimeout(600)
     c_state = init_state(SEED1, SEED2)
     s_state = init_state(SEED1, SEED2)
 
@@ -681,6 +685,7 @@ def handle(client, addr):
     # later branch, so the captured level-10/default status cannot remain shown.
     send_ui_state()
 
+    repeated_world_ack_handled = False
     client.settimeout(30)
     while True:
         readable, _, _ = select.select([client], [], [], 0.25)
@@ -697,20 +702,24 @@ def handle(client, addr):
             # field becomes visible. At this point it is ready to consume the
             # final 0x61 world-unlock packet; an earlier copy may be ignored
             # while the scene is still loading.
-            print("[WORLD] Repeated world-state acknowledgement received.")
-            send_plain(
-                client,
-                s_state,
-                POST_15_REPLY,
-                "S->C repeated world-ack reply",
-            )
-            send_plain(
-                client,
-                s_state,
-                WELCOME_WORLD,
-                "S->C repeated welcome-world/unlock",
-            )
-            send_ui_state()
+            if not repeated_world_ack_handled:
+                repeated_world_ack_handled = True
+                print("[WORLD] Repeated world-state acknowledgement received.")
+                send_plain(
+                    client,
+                    s_state,
+                    POST_15_REPLY,
+                    "S->C repeated world-ack reply",
+                )
+                send_plain(
+                    client,
+                    s_state,
+                    WELCOME_WORLD,
+                    "S->C repeated welcome-world/unlock",
+                )
+                send_ui_state()
+            else:
+                print("[UI] Additional 0x15 acknowledgement received; no world/UI replay.")
 
         elif p[0] == 0x0A and len(p) == 10:
             x = int.from_bytes(p[1:3], "little")
@@ -919,6 +928,9 @@ def handle(client, addr):
 
 
 def main():
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
     print(f"[LOCAL SERVER STEP {VERSION}] listening on {HOST}:{PORT}")
     print(f"[LOCAL SERVER STEP {VERSION}] embedded world-init packets={len(WORLD_BURST)}")
     print(f"[LOCAL SERVER STEP {VERSION}] Real game server is NOT contacted.")
@@ -934,7 +946,7 @@ def main():
             try:
                 global SESSION_STARTED_AT
                 SESSION_STARTED_AT = time.monotonic()
-                client.settimeout(15)
+                client.settimeout(600)
                 handle(client, addr)
             except KeyboardInterrupt:
                 client.close()

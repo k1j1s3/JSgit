@@ -67,6 +67,12 @@ archive/           이전 단계 코드(필요 시 보관)
 python -m unittest discover -v
 ```
 
+LDPlayer가 실행 중이고 로컬 서버가 켜져 있으면 실제 앱 월드 진입과 인벤토리 화면을 자동 확인할 수 있습니다.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File tools\ldplayer_smoke_test.ps1
+```
+
 현재 화면에서 발생하는 장착 변경 요청 패킷은 아직 확인되지 않았으므로 채팅 명령으로 서버 장비·소모품 기능을 검증할 수 있습니다. UI에는 서버가 실제 계산에 사용하는 값이 표시됩니다.
 
 ## 게임 내 명령

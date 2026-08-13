@@ -7,7 +7,10 @@ from contextlib import closing
 from pathlib import Path
 
 from core import CoreGame
-from core import extend_inventory_snapshot, make_character_status, make_inventory_entry
+from core import (
+    extend_inventory_snapshot, make_character_status, make_inventory_entry,
+    make_inventory_snapshot,
+)
 
 
 class CoreGameTests(unittest.TestCase):
@@ -174,6 +177,22 @@ class CoreGameTests(unittest.TestCase):
         self.assertTrue(packet.startswith(b"\x55\x4c\x02\x10\x01\x50\x64"))
         self.assertIn(entry, packet)
         self.assertTrue(packet.endswith(b"\x00\x00"))
+
+    def test_runtime_inventory_snapshot_removes_captured_items(self):
+        captured_item = b"\x08\x6f"
+        base = b"\x55\x4c\x02\x0a\x02" + captured_item + b"\x10\x01\x50\x64\xaa\xbb"
+        runtime_item = b"\x08\xde\x01"
+        packet = make_inventory_snapshot(base, (runtime_item,))
+        self.assertNotIn(captured_item, packet)
+        self.assertIn(runtime_item, packet)
+        self.assertIn(b"\x10\x01\x50\x64", packet)
+
+    def test_inventory_entry_encodes_equipped_state(self):
+        item = self.game.content.load_item(1)
+        unequipped = make_inventory_entry(item, 9_100_000, 1, equipped=False)
+        equipped = make_inventory_entry(item, 9_100_000, 1, equipped=True)
+        self.assertNotEqual(unequipped, equipped)
+        self.assertIn(b"\x28\x01", equipped)
 
 
 if __name__ == "__main__":

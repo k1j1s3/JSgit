@@ -54,7 +54,7 @@ def make_character_status(player: PlayerState) -> bytes:
     return bytes(payload)
 
 
-def make_inventory_entry(item: dict, object_id: int, count: int) -> bytes:
+def make_inventory_entry(item: dict, object_id: int, count: int, equipped: bool = False) -> bytes:
     """Build one item entry for the captured 0x55/0x024C inventory snapshot."""
     name_token = str(item.get("name_token") or f"${item['item_id']}").encode("utf-8")
     option = b"".join([
@@ -69,7 +69,7 @@ def make_inventory_entry(item: dict, object_id: int, count: int) -> bytes:
         _pb_varint(2, int(item["item_id"])),
         _pb_varint(3, object_id + 1_000_000),
         _pb_varint(4, max(1, count)),
-        _pb_varint(5, 0),
+        _pb_varint(5, 1 if equipped else 0),
         _pb_varint(7, int(item.get("grd_gfx") or 0)),
         _pb_varint(8, int(item.get("item_bless") or 2)),
         _pb_varint(9, int(item.get("inv_gfxid") or 0)),
@@ -95,3 +95,44 @@ def extend_inventory_snapshot(base_packet: bytes, entries: tuple[bytes, ...]) ->
     base_proto = base_packet[3:-2]
     additions = b"".join(_pb_bytes(1, entry) for entry in entries)
     return b"\x55\x4c\x02" + base_proto + additions + b"\x00\x00"
+
+
+def _read_varint(buffer: bytes, position: int) -> tuple[int, int]:
+    value = 0
+    shift = 0
+    while position < len(buffer) and shift < 64:
+        byte = buffer[position]
+        position += 1
+        value |= (byte & 0x7F) << shift
+        if not byte & 0x80:
+            return value, position
+        shift += 7
+    raise ValueError("bad protobuf varint")
+
+
+def make_inventory_snapshot(base_packet: bytes, entries: tuple[bytes, ...]) -> bytes:
+    """Replace captured field-1 item rows with runtime-owned inventory rows."""
+    if not base_packet.startswith(b"\x55\x4c\x02"):
+        raise ValueError("not an inventory snapshot")
+    proto = base_packet[3:-2]
+    kept = bytearray()
+    position = 0
+    while position < len(proto):
+        start = position
+        tag, position = _read_varint(proto, position)
+        field, wire = tag >> 3, tag & 7
+        if wire == 0:
+            _, position = _read_varint(proto, position)
+        elif wire == 1:
+            position += 8
+        elif wire == 2:
+            length, position = _read_varint(proto, position)
+            position += length
+        elif wire == 5:
+            position += 4
+        else:
+            raise ValueError(f"unsupported protobuf wire type {wire}")
+        if field != 1:
+            kept.extend(proto[start:position])
+    additions = b"".join(_pb_bytes(1, entry) for entry in entries)
+    return b"\x55\x4c\x02" + bytes(kept) + additions + b"\x00\x00"

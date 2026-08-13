@@ -16,11 +16,12 @@ from core import (
     extend_inventory_snapshot,
     make_character_status,
     make_inventory_entry,
+    make_inventory_snapshot,
 )
 
 HOST = "0.0.0.0"
 PORT = 7867
-VERSION = "INVENTORY-EQUIPMENT-1.0"
+VERSION = "INVENTORY-EQUIPMENT-1.1"
 SEED1 = 0x412A6C59
 SEED2 = 0x5216255D
 SESSION_STARTED_AT = time.monotonic()
@@ -618,22 +619,29 @@ def handle(client, addr):
         )
         inventory = game.runtime.inventory(ACTOR_ID)
         entries = []
+        inventory_objects.clear()
         for index, (item_id, count) in enumerate(sorted(inventory.items())):
             item = game.content.load_item(item_id)
+            item_object_id = 9_100_000 + index
+            inventory_objects[item_object_id] = item_id
             entries.append(
-                make_inventory_entry(item, 9_100_000 + index, count)
+                make_inventory_entry(
+                    item, item_object_id, count,
+                    equipped=(item_id == player_state.weapon_item_id),
+                )
             )
-        if entries:
-            send_plain(
-                client,
-                s_state,
-                extend_inventory_snapshot(BASE_INVENTORY_PACKET, tuple(entries)),
-                "S->C INVENTORY-UI-SNAPSHOT",
-            )
+        send_plain(
+            client,
+            s_state,
+            make_inventory_snapshot(BASE_INVENTORY_PACKET, tuple(entries)),
+            "S->C INVENTORY-UI-SNAPSHOT",
+        )
         print(
             f"[UI-SYNC] status level={player_state.level} exp={player_state.exp} "
             f"inventory={inventory}"
         )
+
+    inventory_objects = {}
 
     def process_world_events():
         for event in game.tick():
@@ -718,6 +726,26 @@ def handle(client, addr):
                     "[CLASSIFY ERROR] Client still thinks type102=10 object is a ground item. "
                     "Please send this log; next step will inspect the native object classifier."
                 )
+
+        elif p[0] == 0x1C and len(p) >= 5:
+            item_object_id = int.from_bytes(p[1:5], "little", signed=False)
+            item_id = inventory_objects.get(item_object_id)
+            print(f"[ITEM-CLICK] obj_id={item_object_id} item_id={item_id}")
+            if item_id is None:
+                send_notice(f"Unknown inventory object {item_object_id}; UI refreshed")
+                send_ui_state()
+                continue
+            item = game.content.load_item(item_id)
+            if int(item.get("weapon_type") or 0) > 0:
+                if player_state.weapon_item_id == item_id:
+                    result = game.unequip_weapon(ACTOR_ID)
+                else:
+                    result = game.equip_weapon(ACTOR_ID, item_id)
+            else:
+                result = game.use_item(ACTOR_ID, item_id)
+            print(f"[ITEM-ACTION] accepted={result.accepted} {result.message}")
+            send_notice(result.message)
+            send_ui_state()
 
         elif p[0] == 0x89 and len(p) >= 5:
             target_id = int.from_bytes(p[1:5], "little", signed=False)

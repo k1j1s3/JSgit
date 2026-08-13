@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## Player Survival & Defense v1
+
+- 근거리 몬스터의 주기적 플레이어 공격과 피격 액션 추가
+- 장비 AC에 따른 몬스터 피해 감소 계산 추가
+- 피격 HP를 캐릭터 UI와 SQLite에 즉시 동기화
+- HP 0에서 추가 피해를 차단하고 5초 후 HP·MP 자동 완전 회복
+- 검증되지 않은 플레이어 제거 액션을 제외해 부활 후 캐릭터가 사라지는 현상 방지
+- 자동 테스트 26개와 LDPlayer 실화면 HP 감소·자동 부활 검증 완료
+
 ## Full Equipment Effects v1
 
 - 장비별 STR, DEX, INT, WIS, CON, CHA, 최대 HP, 최대 MP, AC 효과 재계산 추가

@@ -48,6 +48,25 @@ class CombatEngine:
             critical=critical, exp_gained=exp_gained, drops=drops,
         )
 
+    def monster_attack(self, monster: MonsterState, player: PlayerState) -> AttackResult:
+        if not monster.alive:
+            return AttackResult(False, False, 0, player.hp, player.hp, False, reason="attacker-dead")
+        if player.hp <= 0:
+            return AttackResult(False, False, 0, player.hp, player.hp, True, reason="target-dead")
+
+        damage_min = max(1, int(self.config.get("monster_damage_min", 5)))
+        damage_max = max(damage_min, int(self.config.get("monster_damage_max", 10)))
+        raw_damage = self.rng.randint(damage_min, damage_max)
+        base_ac = int(self.config.get("player_base_ac", 10))
+        divisor = max(1, int(self.config.get("player_defense_divisor", 2)))
+        defense = max(0, base_ac - player.armor_class) // divisor
+        damage = max(int(self.config.get("minimum_damage", 1)), raw_damage - defense)
+        hp_before = player.hp
+        player.hp = max(0, player.hp - damage)
+        return AttackResult(
+            True, True, damage, hp_before, player.hp, player.hp == 0,
+        )
+
     def _hit_chance(self, player: PlayerState, monster: MonsterState) -> float:
         base = float(self.config["base_hit_chance"])
         adjustment = (player.dexterity + player.level - monster.level) * 0.005

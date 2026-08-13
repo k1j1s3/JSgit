@@ -80,6 +80,25 @@ class CoreGame:
             self.runtime.save_player(player)
         return result
 
+    def monster_attack(self, monster_id: int, player_id: int) -> AttackResult:
+        monster = self.monsters.get(monster_id)
+        player = self.players.get(player_id)
+        if monster is None:
+            return AttackResult(False, False, 0, 0, 0, False, reason="unknown-monster")
+        if player is None:
+            return AttackResult(False, False, 0, 0, 0, False, reason="unknown-player")
+        result = self.combat.monster_attack(monster, player)
+        if result.accepted:
+            self.runtime.save_player(player)
+        return result
+
+    def revive_player(self, object_id: int) -> PlayerState:
+        player = self.players[object_id]
+        player.hp = player.max_hp
+        player.mp = player.max_mp
+        self.runtime.save_player(player)
+        return player
+
     def tick(self, now: float | None = None) -> tuple[WorldEvent, ...]:
         current = self.clock() if now is None else now
         events = []

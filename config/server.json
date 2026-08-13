@@ -54,7 +54,14 @@
     "armor_divisor": 5,
     "critical_chance": 0.05,
     "critical_multiplier": 2,
-    "exp_per_level": 10
+    "exp_per_level": 10,
+    "monster_damage_min": 5,
+    "monster_damage_max": 10,
+    "player_base_ac": 10,
+    "player_defense_divisor": 2,
+    "monster_attack_interval": 2.5,
+    "monster_attack_range": 3,
+    "player_respawn_seconds": 5.0
   },
   "world": {
     "corpse_seconds": 1.5,

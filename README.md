@@ -2,7 +2,7 @@
 
 개인 환경에서 프로토콜 호환성을 연구하기 위한 Python 기반 로컬 서버 프로토타입입니다.
 
-현재 최신 구현은 Core Server v1, World/Rewards v1, UI Sync v1.1과 Inventory & Equipment v1을 지원합니다. 공격 시 실제 장착 무기·능력치·몬스터 방어력을 사용해 데미지를 계산하고, 사망한 객체를 제거한 뒤 자동 리스폰합니다. 경험치와 자동 획득 아이템은 캐릭터 상태·인벤토리 UI 패킷으로 동기화됩니다.
+현재 최신 구현은 Core Server, World/Rewards, UI Sync, Equipment Effects와 Player Survival & Defense v1을 지원합니다. 플레이어와 몬스터의 상호 공격, 장비 AC 기반 피해 감소, HP 저장, 자동 부활까지 서버 상태와 캐릭터 UI에 동기화됩니다.
 
 ## 현재 상태
 

@@ -54,6 +54,8 @@ class CoreGameTests(unittest.TestCase):
                 "base_hit_chance": 0.95, "minimum_damage": 1,
                 "armor_divisor": 5, "critical_chance": 0.0,
                 "critical_multiplier": 2, "exp_per_level": 10,
+                "monster_damage_min": 10, "monster_damage_max": 10,
+                "player_base_ac": 10, "player_defense_divisor": 2,
             },
             "world": {
                 "corpse_seconds": 1.5, "respawn_seconds": 10.0, "auto_loot": True,
@@ -94,6 +96,24 @@ class CoreGameTests(unittest.TestCase):
         result = self.game.attack(100, 200)
         self.assertFalse(result.accepted)
         self.assertEqual("target-dead", result.reason)
+
+    def test_monster_attack_uses_armor_and_persists_hp(self):
+        self.game.equip_armor(100, 80581)
+        result = self.game.monster_attack(200, 100)
+        self.assertEqual(9, result.damage)
+        self.assertEqual(91, self.player.hp)
+        reloaded = CoreGame(self.content_db, self.runtime_db, self.config_path)
+        self.assertEqual(91, reloaded.load_player(100).hp)
+
+    def test_player_death_blocks_damage_until_revived(self):
+        self.player.hp = 5
+        result = self.game.monster_attack(200, 100)
+        self.assertTrue(result.killed)
+        self.assertEqual(0, self.player.hp)
+        blocked = self.game.monster_attack(200, 100)
+        self.assertFalse(blocked.accepted)
+        self.game.revive_player(100)
+        self.assertEqual(self.player.max_hp, self.player.hp)
 
     def test_rewards_and_position_are_persisted(self):
         self.game.move_player(100, 9, 10)

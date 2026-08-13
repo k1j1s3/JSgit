@@ -24,7 +24,7 @@ from core import (
 
 HOST = "0.0.0.0"
 PORT = 7867
-VERSION = "FULL-EQUIPMENT-EFFECTS-1.0"
+VERSION = "PLAYER-SURVIVAL-DEFENSE-1.0"
 SEED1 = 0x412A6C59
 SEED2 = 0x5216255D
 SESSION_STARTED_AT = time.monotonic()
@@ -610,6 +610,8 @@ def handle(client, addr):
     )
     last_combat_anim_at = 0.0
     combat_anim_interval = 0.55
+    last_monster_attack_at = time.monotonic()
+    player_revive_at = None
     monster_packet = make_monster_object_packet(
         npc, TEST_MONSTER_OBJ_ID, monster_x, monster_y, heading=6
     )
@@ -676,6 +678,49 @@ def handle(client, addr):
     inventory_objects = {}
 
     def process_world_events():
+        nonlocal last_monster_attack_at, player_revive_at
+        now = time.monotonic()
+        attack_interval = float(game.config["combat"].get("monster_attack_interval", 2.5))
+        attack_range = int(game.config["combat"].get("monster_attack_range", 3))
+        in_attack_range = max(
+            abs(player_state.x - monster_state.x),
+            abs(player_state.y - monster_state.y),
+        ) <= attack_range
+        if (
+            monster_state.alive and player_state.hp > 0 and in_attack_range
+            and now - last_monster_attack_at >= attack_interval
+        ):
+            last_monster_attack_at = now
+            result = game.monster_attack(TEST_MONSTER_OBJ_ID, ACTOR_ID)
+            if result.accepted:
+                send_plain(
+                    client, s_state,
+                    make_object_action(TEST_MONSTER_OBJ_ID, 1),
+                    "S->C MONSTER-ATTACK-ACTION",
+                )
+                time.sleep(0.06)
+                send_plain(
+                    client, s_state,
+                    make_object_action(ACTOR_ID, 2),
+                    "S->C PLAYER-DAMAGE-ACTION",
+                )
+                send_plain(client, s_state, make_character_status(player_state), "S->C PLAYER-HP-SYNC")
+                print(
+                    f"[PLAYER-DAMAGE] damage={result.damage} "
+                    f"hp={result.hp_before}->{result.hp_after} AC={player_state.armor_class} "
+                    f"killed={result.killed}"
+                )
+                if result.killed:
+                    player_revive_at = now + float(
+                        game.config["combat"].get("player_respawn_seconds", 5.0)
+                    )
+                    send_notice("You were defeated. Automatic revival in 5 seconds.")
+        if player_revive_at is not None and now >= player_revive_at:
+            game.revive_player(ACTOR_ID)
+            player_revive_at = None
+            send_plain(client, s_state, make_character_status(player_state), "S->C PLAYER-REVIVE-STATUS")
+            send_notice("Revived with full HP and MP")
+            print(f"[PLAYER-REVIVE] hp={player_state.hp}/{player_state.max_hp} mp={player_state.mp}/{player_state.max_mp}")
         for event in game.tick():
             if event.kind == "remove":
                 send_plain(

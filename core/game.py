@@ -4,7 +4,7 @@ from pathlib import Path
 import time
 
 from .combat import CombatEngine
-from .models import AttackResult, InventoryActionResult, MonsterState, PlayerState, WorldEvent
+from .models import AttackResult, DropReward, GroundItemState, InventoryActionResult, MonsterState, PlayerState, WorldEvent
 from .repository import ContentRepository, RuntimeRepository, load_config
 
 
@@ -17,6 +17,8 @@ class CoreGame:
         self.clock = clock or time.monotonic
         self.players: dict[int, PlayerState] = {}
         self.monsters: dict[int, MonsterState] = {}
+        self.ground_items: dict[int, GroundItemState] = {}
+        self._next_ground_object_id = int(self.config.get("world", {}).get("ground_object_id_start", 9200000))
 
     def load_player(self, object_id: int) -> PlayerState:
         player = self.runtime.load_player(object_id, self.config["default_player"])
@@ -68,6 +70,11 @@ class CoreGame:
             return AttackResult(False, False, 0, 0, 0, False, reason="unknown-player")
         if monster is None:
             return AttackResult(False, False, 0, 0, 0, False, reason="unknown-target")
+        if player.hp <= 0:
+            return AttackResult(False, False, 0, monster.hp, monster.hp, False, reason="player-dead")
+        attack_range = int(self.config.get("combat", {}).get("player_attack_range", 3))
+        if max(abs(player.x - monster.x), abs(player.y - monster.y)) > attack_range:
+            return AttackResult(False, False, 0, monster.hp, monster.hp, False, reason="out-of-range")
         result = self.combat.attack(player, monster)
         if result.killed:
             now = self.clock()
@@ -77,8 +84,49 @@ class CoreGame:
             self._apply_level_ups(player)
             if bool(self.config["world"].get("auto_loot", True)):
                 self.runtime.add_items(player.object_id, result.drops)
+            else:
+                self._create_ground_drops(player.object_id, monster, result.drops, now)
             self.runtime.save_player(player)
         return result
+
+    def _create_ground_drops(self, owner_id, monster, drops, now) -> None:
+        lifetime = float(self.config.get("world", {}).get("ground_item_seconds", 120.0))
+        for drop in drops:
+            object_id = self._next_ground_object_id
+            self._next_ground_object_id += 1
+            self.ground_items[object_id] = GroundItemState(
+                object_id, drop.item_id, drop.name, drop.count,
+                monster.x, monster.y, owner_id, now + lifetime,
+            )
+
+    def pickup_ground_item(self, player_id: int, ground_object_id: int, count: int = 0) -> InventoryActionResult:
+        player = self.players.get(player_id)
+        ground = self.ground_items.get(ground_object_id)
+        if player is None:
+            return InventoryActionResult(False, "Unknown player")
+        if player.hp <= 0:
+            return InventoryActionResult(False, "Cannot pick up while dead")
+        if ground is None:
+            return InventoryActionResult(False, f"Ground item {ground_object_id} not found")
+        if ground.owner_id != player_id:
+            return InventoryActionResult(False, "Ground item belongs to another player", ground.item_id, ground.count)
+        pickup_range = int(self.config.get("world", {}).get("pickup_range", 3))
+        if max(abs(player.x - ground.x), abs(player.y - ground.y)) > pickup_range:
+            return InventoryActionResult(False, "Ground item is out of range", ground.item_id, ground.count)
+        take = ground.count if count <= 0 else min(count, ground.count)
+        self.runtime.add_items(player_id, (DropReward(ground.item_id, ground.name, take),))
+        ground.count -= take
+        if ground.count <= 0:
+            del self.ground_items[ground_object_id]
+        return InventoryActionResult(True, f"Picked up {ground.name} x{take}", ground.item_id, max(0, ground.count))
+
+    def ground_items_text(self) -> str:
+        if not self.ground_items:
+            return "No ground drops"
+        return "Drops " + ", ".join(
+            f"obj {obj}: item {drop.item_id} x{drop.count} at {drop.x},{drop.y}"
+            for obj, drop in sorted(self.ground_items.items())
+        )
 
     def monster_attack(self, monster_id: int, player_id: int) -> AttackResult:
         monster = self.monsters.get(monster_id)
@@ -116,6 +164,10 @@ class CoreGame:
                 monster.corpse_remove_at = None
                 monster.respawn_at = None
                 events.append(WorldEvent("respawn", monster.object_id, monster.npc_id))
+        for object_id, ground in tuple(self.ground_items.items()):
+            if ground.expires_at is not None and current >= ground.expires_at:
+                del self.ground_items[object_id]
+                events.append(WorldEvent("ground-expire", object_id, 0))
         return tuple(events)
 
     def status_text(self, object_id: int) -> str:

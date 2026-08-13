@@ -56,9 +56,12 @@ class CoreGameTests(unittest.TestCase):
                 "critical_multiplier": 2, "exp_per_level": 10,
                 "monster_damage_min": 10, "monster_damage_max": 10,
                 "player_base_ac": 10, "player_defense_divisor": 2,
+                "player_attack_range": 10,
             },
             "world": {
                 "corpse_seconds": 1.5, "respawn_seconds": 10.0, "auto_loot": True,
+                "pickup_range": 3, "ground_item_seconds": 120,
+                "ground_object_id_start": 9200000,
             },
             "starter_inventory": {"292532": 1, "80581": 1},
             "retired_inventory_items": [1],
@@ -143,6 +146,61 @@ class CoreGameTests(unittest.TestCase):
         result = self.game.attack(100, 999)
         self.assertFalse(result.accepted)
         self.assertEqual("unknown-target", result.reason)
+
+    def test_player_attack_rejects_dead_player_and_distant_target(self):
+        self.player.hp = 0
+        self.assertEqual("player-dead", self.game.attack(100, 200).reason)
+        self.player.hp = 100
+        self.player.x = 40
+        self.assertEqual("out-of-range", self.game.attack(100, 200).reason)
+
+    def test_manual_ground_drop_pickup_and_expiration(self):
+        self.game.config["world"]["auto_loot"] = False
+        while self.monster.alive:
+            self.game.attack(100, 200)
+        self.assertNotIn(17923, self.game.runtime.inventory(100))
+        self.assertIn(9200000, self.game.ground_items)
+        result = self.game.pickup_ground_item(100, 9200000)
+        self.assertTrue(result.accepted)
+        self.assertEqual(1, self.game.runtime.inventory(100)[17923])
+        self.game._create_ground_drops(100, self.monster, self.game.content.drops_for(14464), 0)
+        events = self.game.tick(121)
+        self.assertIn("ground-expire", [event.kind for event in events])
+
+    def test_partial_ground_pickup_keeps_remaining_stack(self):
+        self.game._create_ground_drops(
+            100, self.monster,
+            (type("Drop", (), {"item_id": 17923, "name": "food bag", "count": 3})(),),
+            0,
+        )
+        result = self.game.pickup_ground_item(100, 9200000, 2)
+        self.assertTrue(result.accepted)
+        self.assertEqual(1, result.remaining)
+        self.assertEqual(2, self.game.runtime.inventory(100)[17923])
+        self.assertEqual(1, self.game.ground_items[9200000].count)
+
+    def test_ground_pickup_validates_distance_and_life(self):
+        self.game._create_ground_drops(100, self.monster, self.game.content.drops_for(14464), 0)
+        self.player.x = 20
+        self.assertFalse(self.game.pickup_ground_item(100, 9200000).accepted)
+        self.player.x, self.player.y, self.player.hp = 4, 5, 0
+        self.assertFalse(self.game.pickup_ground_item(100, 9200000).accepted)
+
+    def test_ground_pickup_validates_owner(self):
+        self.game._create_ground_drops(999, self.monster, self.game.content.drops_for(14464), 0)
+        result = self.game.pickup_ground_item(100, 9200000)
+        self.assertFalse(result.accepted)
+        self.assertIn("another player", result.message)
+
+    def test_multiple_monsters_have_independent_lifecycle(self):
+        second = self.game.spawn_monster(14464, 201, 6, 5)
+        while self.monster.alive:
+            self.game.attack(100, 200)
+        self.assertFalse(self.monster.alive)
+        self.assertTrue(second.alive)
+        self.game.tick(self.monster.respawn_at)
+        self.assertTrue(self.monster.alive)
+        self.assertTrue(second.alive)
 
     def test_starter_weapon_is_seeded_once(self):
         self.assertEqual(1, self.game.runtime.inventory(100)[292532])

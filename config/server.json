@@ -61,11 +61,15 @@
     "player_defense_divisor": 2,
     "monster_attack_interval": 2.5,
     "monster_attack_range": 3,
-    "player_respawn_seconds": 5.0
+    "player_respawn_seconds": 5.0,
+    "player_attack_range": 3
   },
   "world": {
     "corpse_seconds": 1.5,
     "respawn_seconds": 10.0,
-    "auto_loot": true
+    "auto_loot": false,
+    "pickup_range": 3,
+    "ground_item_seconds": 120.0,
+    "ground_object_id_start": 9200000
   }
 }

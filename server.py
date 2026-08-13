@@ -24,7 +24,7 @@ from core import (
 
 HOST = "0.0.0.0"
 PORT = 7867
-VERSION = "PLAYER-SURVIVAL-DEFENSE-1.0"
+VERSION = "WORLD-INTERACTION-PACK-1.0"
 SEED1 = 0x412A6C59
 SEED2 = 0x5216255D
 SESSION_STARTED_AT = time.monotonic()
@@ -742,6 +742,9 @@ def handle(client, addr):
                     f"hp={monster_state.hp}/{monster_state.max_hp}"
                 )
                 send_notice("Fierce wild boar respawned")
+            elif event.kind == "ground-expire":
+                send_plain(client, s_state, make_object_remove(event.object_id), "S->C GROUND-ITEM-EXPIRE")
+                print(f"[GROUND-DROP] expired obj_id={event.object_id}")
 
     # Some reconnects do not emit the optional repeated 0x15 acknowledgement.
     # Send persisted state on every successful world entry, not only from that
@@ -803,11 +806,12 @@ def handle(client, addr):
                 f"[PICKUP] C_GET x={get_x} y={get_y} "
                 f"obj_id={item_obj_id} count={item_count}"
             )
-            if item_obj_id == TEST_MONSTER_OBJ_ID:
-                print(
-                    "[CLASSIFY ERROR] Client still thinks type102=10 object is a ground item. "
-                    "Please send this log; next step will inspect the native object classifier."
-                )
+            result = game.pickup_ground_item(ACTOR_ID, item_obj_id, item_count)
+            print(f"[PICKUP] accepted={result.accepted} {result.message}")
+            send_notice(result.message)
+            if result.accepted:
+                send_plain(client, s_state, make_object_remove(item_obj_id), "S->C GROUND-ITEM-REMOVE")
+                send_ui_state()
 
         elif p[0] == 0x1C and len(p) >= 5:
             item_object_id = int.from_bytes(p[1:5], "little", signed=False)
@@ -876,8 +880,9 @@ def handle(client, addr):
                             f"player_level={player_state.level} player_exp={player_state.exp} "
                             f"drops=[{drop_text}] persisted={RUNTIME_DB_PATH.name}"
                         )
+                        ground_text = game.ground_items_text()
                         send_notice(
-                            f"Defeated boar: EXP +{result.exp_gained}; loot {drop_text}"
+                            f"Defeated boar: EXP +{result.exp_gained}; {ground_text}"
                         )
                         send_ui_state()
                 else:
@@ -909,6 +914,17 @@ def handle(client, addr):
                     reply_text = game.inventory_text(ACTOR_ID)
                 elif command in (".equipment", ".gear"):
                     reply_text = game.equipment_text(ACTOR_ID)
+                elif command == ".drops":
+                    reply_text = game.ground_items_text()
+                elif command.startswith(".pickup "):
+                    try:
+                        object_id = int(command.split(maxsplit=1)[1])
+                        result = game.pickup_ground_item(ACTOR_ID, object_id)
+                        reply_text = result.message
+                        if result.accepted:
+                            send_ui_state()
+                    except ValueError:
+                        reply_text = "Usage: .pickup GROUND_OBJECT_ID"
                 elif command.startswith(".equip "):
                     try:
                         item_id = int(command.split(maxsplit=1)[1])
@@ -933,7 +949,7 @@ def handle(client, addr):
                     except ValueError:
                         reply_text = "Usage: .item ITEM_ID"
                 elif command == ".help":
-                    reply_text = "Commands: .status .inventory .equipment .item ID .equip ID .unequip .use ID .help"
+                    reply_text = "Commands: .status .inventory .equipment .drops .pickup OBJ .item ID .equip ID .unequip .use ID .help"
                 else:
                     reply_text = rpc["text"]
 

@@ -45,6 +45,18 @@ class MonsterState:
     respawn_at: float | None = None
 
 
+@dataclass
+class GroundItemState:
+    object_id: int
+    item_id: int
+    name: str
+    count: int
+    x: int
+    y: int
+    owner_id: int
+    expires_at: float | None = None
+
+
 @dataclass(frozen=True)
 class DropReward:
     item_id: int

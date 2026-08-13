@@ -86,6 +86,8 @@ powershell -ExecutionPolicy Bypass -File tools\ldplayer_smoke_test.ps1
 - `.equip ID`: 인벤토리에 있는 무기 장착
 - `.unequip`: 현재 무기 해제
 - `.equipment` 또는 `.gear`: 서버에 저장된 방어구 장착 슬롯 확인
+- `.drops`: 현재 서버 바닥 드롭 객체와 위치 확인
+- `.pickup OBJ`: 해당 바닥 객체를 거리·소유권 검사 후 습득
 - `.use ID`: 설정된 소모품 사용
 - `.help`: 명령 목록 확인
 

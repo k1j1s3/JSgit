@@ -12,8 +12,10 @@ from pathlib import Path
 
 HOST = "0.0.0.0"
 PORT = 7867
+VERSION = "10C"
 SEED1 = 0x412A6C59
 SEED2 = 0x5216255D
+SESSION_STARTED_AT = time.monotonic()
 
 S_HELLO_REPLY = bytes.fromhex("55 35 03 08 00 10 07 18 8e 87 bd 8d 07 20 8e 87 bd 8d 07 28 fd ac ef c0 07 30 8e 87 bd 8d 07 38 98 f1 eb d3 06 40 00 48 00 50 82 fb fd e7 07 58 99 db ec d3 06 60 fa ed a5 dc 06 68 e5 e3 cf 47 70 e5 f3 dc 4c 78 8b b2 ca df 06 80 01 d9 9a d7 df 06 88 01 00 3f 81")
 POST_LOGIN = [
@@ -109,7 +111,8 @@ def recv_plain(sock, c_state, label):
     frame = recv_frame(sock)
     plain = crypt_packet(c_state, frame[2:])
     op = plain[0] if plain else None
-    print(f"{label} len={len(plain)} op={('0x%02X' % op) if op is not None else 'NONE'} | {plain.hex(' ')}")
+    elapsed = time.monotonic() - SESSION_STARTED_AT
+    print(f"[+{elapsed:07.3f}s] {label} len={len(plain)} op={('0x%02X' % op) if op is not None else 'NONE'} | {plain.hex(' ')}")
     return plain
 
 
@@ -118,7 +121,8 @@ def send_plain(sock, s_state, payload, label=None):
     frame = (len(encrypted) + 2).to_bytes(2, "little") + encrypted
     sock.sendall(frame)
     if label:
-        print(f"{label} len={len(payload)} op=0x{payload[0]:02X}")
+        elapsed = time.monotonic() - SESSION_STARTED_AT
+        print(f"[+{elapsed:07.3f}s] {label} len={len(payload)} op=0x{payload[0]:02X}")
 
 
 def make_seed():
@@ -506,11 +510,9 @@ def handle(client, addr):
 
     print()
     print(f"[WORLD] Sending {len(WORLD_BURST)} captured initialization packets...")
-    # In the successful trace packets 1..132 arrived in the same second,
-    # while the final packet arrived about two seconds later.
-    for i, pkt in enumerate(WORLD_BURST):
-        if i == len(WORLD_BURST) - 1:
-            time.sleep(2.0)
+    # Send the captured initialization burst without replaying capture timing.
+    # Delaying the final packet only extends the client's movement lock.
+    for pkt in WORLD_BURST:
         send_plain(client, s_state, pkt)
     print("[WORLD] Initial burst sent.")
 
@@ -717,9 +719,9 @@ def handle(client, addr):
 
 
 def main():
-    print(f"[LOCAL SERVER STEP 10B] listening on {HOST}:{PORT}")
-    print(f"[LOCAL SERVER STEP 10B] embedded world-init packets={len(WORLD_BURST)}")
-    print("[LOCAL SERVER STEP 10B] Real game server is NOT contacted.")
+    print(f"[LOCAL SERVER STEP {VERSION}] listening on {HOST}:{PORT}")
+    print(f"[LOCAL SERVER STEP {VERSION}] embedded world-init packets={len(WORLD_BURST)}")
+    print(f"[LOCAL SERVER STEP {VERSION}] Real game server is NOT contacted.")
     print()
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server:
@@ -730,6 +732,8 @@ def main():
         while True:
             client, addr = server.accept()
             try:
+                global SESSION_STARTED_AT
+                SESSION_STARTED_AT = time.monotonic()
                 client.settimeout(15)
                 handle(client, addr)
             except KeyboardInterrupt:

@@ -24,7 +24,7 @@ from core import (
 
 HOST = "0.0.0.0"
 PORT = 7867
-VERSION = "ARMOR-LOADOUT-1.0"
+VERSION = "FULL-EQUIPMENT-EFFECTS-1.0"
 SEED1 = 0x412A6C59
 SEED2 = 0x5216255D
 SESSION_STARTED_AT = time.monotonic()
@@ -862,6 +862,8 @@ def handle(client, addr):
                     reply_text = game.status_text(ACTOR_ID)
                 elif command in (".inventory", ".inv"):
                     reply_text = game.inventory_text(ACTOR_ID)
+                elif command in (".equipment", ".gear"):
+                    reply_text = game.equipment_text(ACTOR_ID)
                 elif command.startswith(".equip "):
                     try:
                         item_id = int(command.split(maxsplit=1)[1])
@@ -886,7 +888,7 @@ def handle(client, addr):
                     except ValueError:
                         reply_text = "Usage: .item ITEM_ID"
                 elif command == ".help":
-                    reply_text = "Commands: .status .inventory .item ID .equip ID .unequip .use ID .help"
+                    reply_text = "Commands: .status .inventory .equipment .item ID .equip ID .unequip .use ID .help"
                 else:
                     reply_text = rpc["text"]
 

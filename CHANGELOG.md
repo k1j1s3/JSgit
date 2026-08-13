@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## Full Equipment Effects v1
+
+- 장비별 STR, DEX, INT, WIS, CON, CHA, 최대 HP, 최대 MP, AC 효과 재계산 추가
+- 같은 슬롯의 장비 교체 시 이전 효과 제거 후 새 효과 적용
+- 로그인·재접속 시 SQLite 장착 슬롯에서 능력치 자동 복원
+- `.equipment`/`.gear` 명령으로 서버에 저장된 장착 슬롯 조회
+- 자동 테스트 24개와 LDPlayer 실화면 검증 완료 (AC 8, HP 100/110)
+
 ## Armor & Loadout v1
 
 - 슬롯 기반 `equipment` SQLite 테이블과 자동 마이그레이션 추가

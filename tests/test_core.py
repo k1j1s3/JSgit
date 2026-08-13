@@ -37,6 +37,7 @@ class CoreGameTests(unittest.TestCase):
             connection.execute("INSERT INTO items VALUES (1, 4, 6, 1, 0, 0, 'knife')")
             connection.execute("INSERT INTO items VALUES (292532, 8, 9, 102, 0, 0, 'runesword')")
             connection.execute("INSERT INTO items VALUES (80581, 0, 0, 0, 64, 0, 'gloves')")
+            connection.execute("INSERT INTO items VALUES (80582, 0, 0, 0, 64, 0, 'test gloves')")
             connection.execute(
                 "CREATE TABLE npc_drops (npc_id INTEGER, item_id INTEGER, item_name_zh_tw TEXT)"
             )
@@ -61,7 +62,10 @@ class CoreGameTests(unittest.TestCase):
             "retired_inventory_items": [1],
             "item_enchant_levels": {"292532": 6},
             "item_display": {"292532": {"name": "Desert Runesword"}},
-            "armor_ac_overrides": {"80581": 2},
+            "equipment_effects": {
+                "80581": {"ac": 2, "max_hp": 10},
+                "80582": {"ac": 3, "strength": 2, "dexterity": 1, "max_mp": 5},
+            },
             "consumables": {"17923": {"hp_restore": 25}},
         }
         self.config_path.write_text(json.dumps(config), encoding="utf-8")
@@ -152,6 +156,7 @@ class CoreGameTests(unittest.TestCase):
         result = self.game.equip_armor(100, 80581)
         self.assertTrue(result.accepted)
         self.assertEqual(8, self.player.armor_class)
+        self.assertEqual(110, self.player.max_hp)
         self.assertEqual((80581, 0), self.game.runtime.equipment(100)[64])
         reloaded = CoreGame(self.content_db, self.runtime_db, self.config_path)
         self.assertEqual(8, reloaded.load_player(100).armor_class)
@@ -161,7 +166,24 @@ class CoreGameTests(unittest.TestCase):
         result = self.game.unequip_armor(100, 80581)
         self.assertTrue(result.accepted)
         self.assertEqual(10, self.player.armor_class)
+        self.assertEqual(100, self.player.max_hp)
         self.assertEqual({}, self.game.runtime.equipment(100))
+
+    def test_equipment_command_lists_persistent_slots(self):
+        self.game.equip_armor(100, 80581)
+        self.assertIn("slot 64: +0 item 80581", self.game.equipment_text(100))
+
+    def test_same_slot_replacement_recalculates_all_equipment_effects(self):
+        self.game.equip_armor(100, 80581)
+        self.game.runtime.ensure_item(100, 80582, 1)
+        result = self.game.equip_armor(100, 80582)
+        self.assertTrue(result.accepted)
+        self.assertEqual((80582, 0), self.game.runtime.equipment(100)[64])
+        self.assertEqual(7, self.player.armor_class)
+        self.assertEqual(18, self.player.strength)
+        self.assertEqual(51, self.player.dexterity)
+        self.assertEqual(100, self.player.max_hp)
+        self.assertEqual(55, self.player.max_mp)
 
     def test_non_weapon_cannot_be_equipped(self):
         self.game.runtime.add_items(100, self.game.content.drops_for(14464))

@@ -48,7 +48,7 @@ class CoreGame:
         for item_id, count in self.config.get("starter_inventory", {}).items():
             self.runtime.ensure_item(object_id, int(item_id), int(count))
         self.players[object_id] = player
-        self._recalculate_armor_class(player)
+        self._recalculate_equipment_stats(player)
         return player
 
     def spawn_monster(self, npc_id: int, object_id: int, x: int, y: int) -> MonsterState:
@@ -197,7 +197,7 @@ class CoreGame:
             return InventoryActionResult(False, f"Item {item_id} is not armor", item_id)
         enchant = int(self.config.get("item_enchant_levels", {}).get(str(item_id), 0))
         self.runtime.equip_item(object_id, slot, item_id, enchant)
-        self._recalculate_armor_class(player)
+        self._recalculate_equipment_stats(player)
         name = str(
             self.config.get("item_display", {}).get(str(item_id), {}).get("name")
             or item.get("name_zh_tw") or item.get("name_token") or item_id
@@ -211,19 +211,50 @@ class CoreGame:
         if slot is None:
             return InventoryActionResult(False, f"Armor {item_id} is not equipped", item_id)
         self.runtime.unequip_slot(object_id, slot)
-        self._recalculate_armor_class(player)
+        self._recalculate_equipment_stats(player)
         return InventoryActionResult(True, f"Unequipped armor {item_id}; AC {player.armor_class}", item_id, 1)
 
-    def _recalculate_armor_class(self, player: PlayerState) -> None:
-        base_ac = int(self.config["default_player"]["armor_class"])
-        bonus = 0
-        overrides = self.config.get("armor_ac_overrides", {})
+    def _recalculate_equipment_stats(self, player: PlayerState) -> None:
+        defaults = self.config["default_player"]
+        effects_by_item = self.config.get("equipment_effects", {})
+        totals = {
+            "strength": 0, "dexterity": 0, "intelligence": 0,
+            "wisdom": 0, "constitution": 0, "charisma": 0,
+            "max_hp": 0, "max_mp": 0, "ac": 0,
+        }
         for item_id, enchant in self.runtime.equipment(player.object_id).values():
             item = self.content.load_item(item_id)
-            item_ac = int(overrides.get(str(item_id), item.get("armor_ac") or 0))
-            bonus += max(0, item_ac) + max(0, enchant)
-        player.armor_class = base_ac - bonus
+            effects = effects_by_item.get(str(item_id), {})
+            database_ac = max(0, -int(item.get("armor_ac") or 0))
+            totals["ac"] += int(effects.get("ac", database_ac)) + max(0, enchant)
+            for field in totals:
+                if field != "ac":
+                    totals[field] += int(effects.get(field, 0))
+        for field in (
+            "strength", "dexterity", "intelligence", "wisdom",
+            "constitution", "charisma",
+        ):
+            model_default = PlayerState.__dataclass_fields__[field].default
+            setattr(player, field, int(defaults.get(field, model_default)) + totals[field])
+        player.max_hp = max(
+            1, int(defaults.get("max_hp", PlayerState.max_hp)) + totals["max_hp"]
+        )
+        player.max_mp = max(
+            0, int(defaults.get("max_mp", PlayerState.max_mp)) + totals["max_mp"]
+        )
+        player.hp = min(player.hp, player.max_hp)
+        player.mp = min(player.mp, player.max_mp)
+        player.armor_class = int(defaults.get("armor_class", PlayerState.armor_class)) - totals["ac"]
         self.runtime.save_player(player)
+
+    def equipment_text(self, object_id: int) -> str:
+        equipment = self.runtime.equipment(object_id)
+        if not equipment:
+            return "No armor equipped"
+        return "Equipment " + ", ".join(
+            f"slot {slot}: +{enchant} item {item_id}"
+            for slot, (item_id, enchant) in sorted(equipment.items())
+        )
 
     def _apply_level_ups(self, player: PlayerState) -> None:
         while player.exp >= self.exp_required(player.level + 1):

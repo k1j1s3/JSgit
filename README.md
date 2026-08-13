@@ -85,6 +85,7 @@ powershell -ExecutionPolicy Bypass -File tools\ldplayer_smoke_test.ps1
 - `.item ID`: 강화 수치를 포함한 무기 공격력 확인
 - `.equip ID`: 인벤토리에 있는 무기 장착
 - `.unequip`: 현재 무기 해제
+- `.equipment` 또는 `.gear`: 서버에 저장된 방어구 장착 슬롯 확인
 - `.use ID`: 설정된 소모품 사용
 - `.help`: 명령 목록 확인
 

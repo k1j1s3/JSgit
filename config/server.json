@@ -37,8 +37,11 @@
       "name": "수련자의 견고한 장갑"
     }
   },
-  "armor_ac_overrides": {
-    "80581": 2
+  "equipment_effects": {
+    "80581": {
+      "ac": 2,
+      "max_hp": 10
+    }
   },
   "consumables": {
     "17923": {

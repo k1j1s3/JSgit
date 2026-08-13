@@ -17,6 +17,10 @@
     "critical_chance": 0.05,
     "critical_multiplier": 2,
     "exp_per_level": 10
+  },
+  "world": {
+    "corpse_seconds": 1.5,
+    "respawn_seconds": 10.0,
+    "auto_loot": true
   }
 }
-

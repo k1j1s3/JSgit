@@ -30,6 +30,9 @@ class MonsterState:
     x: int = 0
     y: int = 0
     alive: bool = True
+    removed: bool = False
+    corpse_remove_at: float | None = None
+    respawn_at: float | None = None
 
 
 @dataclass(frozen=True)
@@ -51,4 +54,11 @@ class AttackResult:
     exp_gained: int = 0
     drops: tuple[DropReward, ...] = field(default_factory=tuple)
     reason: str = ""
+
+
+@dataclass(frozen=True)
+class WorldEvent:
+    kind: str
+    object_id: int
+    npc_id: int
 

@@ -3,6 +3,7 @@
 # Does not connect to the real game server.
 
 import socket
+import select
 import time
 import zlib
 import base64
@@ -14,7 +15,7 @@ from core import CoreGame
 
 HOST = "0.0.0.0"
 PORT = 7867
-VERSION = "CORE-1.0"
+VERSION = "WORLD-1.0"
 SEED1 = 0x412A6C59
 SEED2 = 0x5216255D
 SESSION_STARTED_AT = time.monotonic()
@@ -181,6 +182,10 @@ def pb_bytes(field_no, data):
         + encode_varint(len(data))
         + data
     )
+
+
+def make_object_remove(obj_id):
+    return bytes([0xB9]) + int(obj_id).to_bytes(4, "little", signed=False)
 
 
 def make_chat_reply(text, actor_id, x, y):
@@ -584,13 +589,44 @@ def handle(client, addr):
     )
     print(f"[ACTION] Look 3 tiles to the right. Attack the living fierce wild boar. Step {VERSION} should animate combat without a startup block.")
 
+    def send_notice(text):
+        send_plain(
+            client,
+            s_state,
+            make_chat_reply(text, ACTOR_ID, local_x, local_y),
+            "S->C SYSTEM-NOTICE",
+        )
+
+    def process_world_events():
+        for event in game.tick():
+            if event.kind == "remove":
+                send_plain(
+                    client,
+                    s_state,
+                    make_object_remove(event.object_id),
+                    "S->C MONSTER-REMOVE",
+                )
+                print(f"[WORLD] corpse removed obj_id={event.object_id}")
+            elif event.kind == "respawn":
+                send_plain(
+                    client,
+                    s_state,
+                    monster_packet,
+                    "S->C MONSTER-RESPAWN",
+                )
+                print(
+                    f"[WORLD] monster respawned obj_id={event.object_id} "
+                    f"hp={monster_state.hp}/{monster_state.max_hp}"
+                )
+                send_notice("Fierce wild boar respawned")
+
     client.settimeout(30)
     while True:
-        try:
-            p = recv_plain(client, c_state, "C->S LIVE")
-        except socket.timeout:
-            print("[LIVE] No client packet for 30s; keeping session open.")
+        readable, _, _ = select.select([client], [], [], 0.25)
+        if not readable:
+            process_world_events()
             continue
+        p = recv_plain(client, c_state, "C->S LIVE")
 
         if not p:
             continue
@@ -678,6 +714,9 @@ def handle(client, addr):
                             f"player_level={player_state.level} player_exp={player_state.exp} "
                             f"drops=[{drop_text}] persisted={RUNTIME_DB_PATH.name}"
                         )
+                        send_notice(
+                            f"Defeated boar: EXP +{result.exp_gained}; loot {drop_text}"
+                        )
                 else:
                     print("[COMBAT-ANIM] duplicate auto-attack request throttled")
             elif target_id == 0:
@@ -700,12 +739,17 @@ def handle(client, addr):
                     f"field1={rpc['field1']} field2={rpc['field2']}"
                 )
 
-                reply = make_chat_reply(
-                    rpc["text"],
-                    ACTOR_ID,
-                    local_x,
-                    local_y
-                )
+                command = rpc["text"].strip().lower()
+                if command == ".status":
+                    reply_text = game.status_text(ACTOR_ID)
+                elif command in (".inventory", ".inv"):
+                    reply_text = game.inventory_text(ACTOR_ID)
+                elif command == ".help":
+                    reply_text = "Commands: .status .inventory .help"
+                else:
+                    reply_text = rpc["text"]
+
+                reply = make_chat_reply(reply_text, ACTOR_ID, local_x, local_y)
                 send_plain(
                     client,
                     s_state,

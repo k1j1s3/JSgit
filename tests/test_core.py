@@ -44,6 +44,9 @@ class CoreGameTests(unittest.TestCase):
                 "armor_divisor": 5, "critical_chance": 0.0,
                 "critical_multiplier": 2, "exp_per_level": 10,
             },
+            "world": {
+                "corpse_seconds": 1.5, "respawn_seconds": 10.0, "auto_loot": True,
+            },
         }
         self.config_path.write_text(json.dumps(config), encoding="utf-8")
         self.game = CoreGame(
@@ -86,6 +89,23 @@ class CoreGameTests(unittest.TestCase):
         result = self.game.attack(100, 999)
         self.assertFalse(result.accepted)
         self.assertEqual("unknown-target", result.reason)
+
+    def test_corpse_removal_and_respawn_lifecycle(self):
+        while self.monster.alive:
+            self.game.attack(100, 200)
+        removed = self.game.tick(self.monster.corpse_remove_at)
+        self.assertEqual("remove", removed[0].kind)
+        self.assertTrue(self.monster.removed)
+        respawned = self.game.tick(self.monster.respawn_at)
+        self.assertEqual("respawn", respawned[0].kind)
+        self.assertTrue(self.monster.alive)
+        self.assertEqual(self.monster.max_hp, self.monster.hp)
+
+    def test_status_and_inventory_commands(self):
+        while self.monster.alive:
+            self.game.attack(100, 200)
+        self.assertIn("EXP 100/", self.game.status_text(100))
+        self.assertIn("item 17923 x1", self.game.inventory_text(100))
 
 
 if __name__ == "__main__":

@@ -86,6 +86,20 @@ class CoreGameTests(unittest.TestCase):
         self.assertEqual(100, player.exp)
         self.assertEqual(1, reloaded.runtime.inventory(100)[17923])
 
+    def test_early_client_exp_thresholds(self):
+        self.assertEqual(300, self.game.exp_required(3))
+        self.assertEqual(500, self.game.exp_required(4))
+
+    def test_login_reconciles_base_stats_without_losing_progress(self):
+        self.player.level = 3
+        self.player.exp = 400
+        self.player.strength = 9
+        self.game.runtime.save_player(self.player)
+        reloaded = CoreGame(self.content_db, self.runtime_db, self.config_path)
+        player = reloaded.load_player(100)
+        self.assertEqual((3, 400), (player.level, player.exp))
+        self.assertEqual(16, player.strength)
+
     def test_unknown_target_is_rejected(self):
         result = self.game.attack(100, 999)
         self.assertFalse(result.accepted)

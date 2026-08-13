@@ -20,6 +20,19 @@ class CoreGame:
 
     def load_player(self, object_id: int) -> PlayerState:
         player = self.runtime.load_player(object_id, self.config["default_player"])
+        # Progression is runtime-owned, while base character creation stats are
+        # configuration-owned until equipment/stat allocation is implemented.
+        # Reconcile old rows so a protocol-capture default cannot leak back into
+        # the UI after reconnecting.
+        if self.config.get("sync_default_stats_on_login", True):
+            defaults = self.config["default_player"]
+            for field in (
+                "strength", "dexterity", "intelligence", "wisdom",
+                "constitution", "charisma",
+            ):
+                if field in defaults:
+                    setattr(player, field, int(defaults[field]))
+            self.runtime.save_player(player)
         self.players[object_id] = player
         return player
 
@@ -93,4 +106,12 @@ class CoreGame:
 
     @staticmethod
     def exp_required(level: int) -> int:
-        return max(0, (level - 1) * (level - 1) * 100)
+        # Early client EXP table confirmed from the UI:
+        # total 300 is level 2 at 100%, and total 400 is level 3 at 50%.
+        # Keep the currently exercised low-level range deterministic until the
+        # complete client table is imported from data.
+        if level <= 1:
+            return 0
+        if level == 2:
+            return 100
+        return 300 + (level - 3) * 200

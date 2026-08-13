@@ -20,7 +20,7 @@ from core import (
 
 HOST = "0.0.0.0"
 PORT = 7867
-VERSION = "UI-SYNC-1.0"
+VERSION = "UI-SYNC-1.1"
 SEED1 = 0x412A6C59
 SEED2 = 0x5216255D
 SESSION_STARTED_AT = time.monotonic()
@@ -513,8 +513,12 @@ def handle(client, addr):
     for pkt in AFTER_33:
         send_plain(client, s_state, pkt)
 
-    # Second 0x8E
+    # Second 0x8E. A reconnect may insert a small 0x10 keepalive here; consume
+    # it instead of aborting an otherwise valid login sequence.
     p = recv_plain(client, c_state, "C->S #4")
+    while p and p[0] == 0x10:
+        print("[LOGIN] Ignored reconnect keepalive opcode 0x10")
+        p = recv_plain(client, c_state, "C->S #4-CONTINUE")
     if not p or p[0] != 0x8E:
         raise RuntimeError("expected second 0x8E")
     send_plain(client, s_state, FINAL_REPLY_TO_8E)
@@ -653,6 +657,11 @@ def handle(client, addr):
                     f"hp={monster_state.hp}/{monster_state.max_hp}"
                 )
                 send_notice("Fierce wild boar respawned")
+
+    # Some reconnects do not emit the optional repeated 0x15 acknowledgement.
+    # Send persisted state on every successful world entry, not only from that
+    # later branch, so the captured level-10/default status cannot remain shown.
+    send_ui_state()
 
     client.settimeout(30)
     while True:
@@ -824,6 +833,18 @@ def handle(client, addr):
                         f"[SHOP] Unknown catalog page={page}; "
                         "keeping connection open."
                     )
+
+            elif rpc["rpc_id"] == 0x03E9:
+                # Periodic client time/keepalive request. The paired server RPC
+                # is 0x03EA and echoes the fixed64 timestamp payload.
+                heartbeat_reply = b"\x55\xea\x03" + rpc["body"] + b"\x00\x00"
+                send_plain(
+                    client,
+                    s_state,
+                    heartbeat_reply,
+                    "S->C HEARTBEAT-0x03EA",
+                )
+                print("[HEARTBEAT] replied 0x03E9 -> 0x03EA")
 
             else:
                 print(

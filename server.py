@@ -12,7 +12,7 @@ from pathlib import Path
 
 HOST = "0.0.0.0"
 PORT = 7867
-VERSION = "10E"
+VERSION = "10F"
 SEED1 = 0x412A6C59
 SEED2 = 0x5216255D
 SESSION_STARTED_AT = time.monotonic()
@@ -47,7 +47,7 @@ CHAR_UID = bytes.fromhex("eb a7 88 ea b3 b0 ec 82 ac 31")
 
 # Step 9: data-driven monster test.
 DB_PATH = Path(__file__).parent / "data" / "lineager_server_data.sqlite"
-TEST_NPC_ID = 2             # 妖魔鬥士 (Orc fighter) in the current hot-update DB
+TEST_NPC_ID = 14464         # 凶暴的山豬 (fierce wild boar) used by the packet template
 TEST_MONSTER_OBJ_ID = 9000001
 
 

@@ -22,6 +22,7 @@ class PlayerState:
     max_mp: int = 50
     alignment: int = 0
     weapon_item_id: int = 1
+    weapon_enchant: int = 0
     x: int = 0
     y: int = 0
 

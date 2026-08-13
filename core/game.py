@@ -38,6 +38,12 @@ class CoreGame:
             self.runtime.delete_item(object_id, item_id)
         if player.weapon_item_id in retired_items:
             player.weapon_item_id = int(self.config["default_player"]["weapon_item_id"])
+            player.weapon_enchant = int(self.config["default_player"].get("weapon_enchant", 0))
+            self.runtime.save_player(player)
+        configured_enchants = self.config.get("item_enchant_levels", {})
+        expected_enchant = int(configured_enchants.get(str(player.weapon_item_id), player.weapon_enchant))
+        if player.weapon_enchant != expected_enchant:
+            player.weapon_enchant = expected_enchant
             self.runtime.save_player(player)
         for item_id, count in self.config.get("starter_inventory", {}).items():
             self.runtime.ensure_item(object_id, int(item_id), int(count))
@@ -97,7 +103,8 @@ class CoreGame:
         next_exp = self.exp_required(player.level + 1)
         return (
             f"Lv.{player.level} EXP {player.exp}/{next_exp} "
-            f"STR {player.strength} DEX {player.dexterity} weapon {player.weapon_item_id}"
+            f"STR {player.strength} DEX {player.dexterity} "
+            f"weapon +{player.weapon_enchant} {player.weapon_item_id}"
         )
 
     def inventory_text(self, object_id: int) -> str:
@@ -119,16 +126,39 @@ class CoreGame:
         if int(item.get("weapon_type") or 0) <= 0:
             return InventoryActionResult(False, f"Item {item_id} is not a weapon", item_id)
         player.weapon_item_id = item_id
+        player.weapon_enchant = int(
+            self.config.get("item_enchant_levels", {}).get(str(item_id), 0)
+        )
         self.runtime.save_player(player)
         name = str(item.get("name_zh_tw") or item.get("name_token") or item_id)
-        return InventoryActionResult(True, f"Equipped {item_id}:{name}", item_id, inventory[item_id])
+        return InventoryActionResult(
+            True, f"Equipped +{player.weapon_enchant} {item_id}:{name}",
+            item_id, inventory[item_id],
+        )
 
     def unequip_weapon(self, object_id: int) -> InventoryActionResult:
         player = self.players[object_id]
         old_item_id = player.weapon_item_id
         player.weapon_item_id = 0
+        player.weapon_enchant = 0
         self.runtime.save_player(player)
         return InventoryActionResult(True, f"Unequipped weapon {old_item_id}", old_item_id)
+
+    def item_detail_text(self, item_id: int) -> str:
+        item = self.content.try_load_item(item_id)
+        if item is None:
+            return f"Unknown item {item_id}"
+        override = self.config.get("item_display", {}).get(str(item_id), {})
+        name = str(
+            override.get("name") or item.get("name_zh_tw")
+            or item.get("name_token") or item_id
+        )
+        enchant = int(self.config.get("item_enchant_levels", {}).get(str(item_id), 0))
+        if int(item.get("weapon_type") or 0) > 0:
+            small = max(1, int(item.get("dmg_small") or 1)) + enchant
+            large = max(1, int(item.get("dmg_large") or 1)) + enchant
+            return f"+{enchant} {name}: damage small {small}, large {large}"
+        return f"{name}: non-weapon item"
 
     def use_item(self, object_id: int, item_id: int) -> InventoryActionResult:
         player = self.players[object_id]

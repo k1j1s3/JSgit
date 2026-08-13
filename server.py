@@ -24,7 +24,7 @@ from core import (
 
 HOST = "0.0.0.0"
 PORT = 7867
-VERSION = "INVENTORY-EQUIPMENT-1.3"
+VERSION = "EQUIPMENT-STATS-2.0"
 SEED1 = 0x412A6C59
 SEED2 = 0x5216255D
 SESSION_STARTED_AT = time.monotonic()
@@ -632,8 +632,10 @@ def handle(client, addr):
         for index, (item_id, count) in enumerate(sorted(inventory.items())):
             item = game.content.load_item(item_id)
             item_object_id = 9_100_000 + index
-            inventory_objects[item_object_id] = item_id
             if item_id == 292532:
+                # Preserve the exact object id used by the captured equipment
+                # and detail caches. Only its runtime count is rewritten.
+                item_object_id = 1_431_489
                 entries.append(rewrite_inventory_entry(
                     captured_inventory_entry(BASE_INVENTORY_PACKET, item_id),
                     item_object_id, count,
@@ -644,6 +646,7 @@ def handle(client, addr):
                     item, item_object_id, count,
                     equipped=(item_id == player_state.weapon_item_id),
                 ))
+            inventory_objects[item_object_id] = item_id
         send_plain(
             client,
             s_state,
@@ -853,8 +856,14 @@ def handle(client, addr):
                         send_ui_state()
                     except ValueError:
                         reply_text = "Usage: .use ITEM_ID"
+                elif command.startswith(".item "):
+                    try:
+                        item_id = int(command.split(maxsplit=1)[1])
+                        reply_text = game.item_detail_text(item_id)
+                    except ValueError:
+                        reply_text = "Usage: .item ITEM_ID"
                 elif command == ".help":
-                    reply_text = "Commands: .status .inventory .equip ID .unequip .use ID .help"
+                    reply_text = "Commands: .status .inventory .item ID .equip ID .unequip .use ID .help"
                 else:
                     reply_text = rpc["text"]
 

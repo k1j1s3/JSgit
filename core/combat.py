@@ -25,13 +25,14 @@ class CombatEngine:
             if player.weapon_item_id else 1
         )
         weapon_roll = self.rng.randint(1, weapon_max)
+        enchant_bonus = max(0, int(player.weapon_enchant))
         strength_bonus = max(0, (player.strength - 10) // 3)
         level_bonus = max(0, player.level // 10)
         defense = max(0, -monster.armor_class // int(self.config["armor_divisor"]))
         critical = self.rng.random() < float(self.config["critical_chance"])
         damage = max(
             int(self.config["minimum_damage"]),
-            weapon_roll + strength_bonus + level_bonus - defense,
+            weapon_roll + enchant_bonus + strength_bonus + level_bonus - defense,
         )
         if critical:
             damage *= int(self.config["critical_multiplier"])

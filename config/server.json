@@ -16,6 +16,7 @@
     "max_mp": 50,
     "alignment": 0,
     "weapon_item_id": 292532,
+    "weapon_enchant": 6,
     "x": 32720,
     "y": 32817
   },
@@ -24,6 +25,14 @@
     "292532": 1
   },
   "retired_inventory_items": [1],
+  "item_enchant_levels": {
+    "292532": 6
+  },
+  "item_display": {
+    "292532": {
+      "name": "사막의 룬소드 (각인)"
+    }
+  },
   "consumables": {
     "17923": {
       "hp_restore": 25

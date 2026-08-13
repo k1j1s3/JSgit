@@ -69,7 +69,7 @@ def make_inventory_entry(item: dict, object_id: int, count: int, equipped: bool 
         _pb_varint(2, int(item["item_id"])),
         _pb_varint(3, object_id + 1_000_000),
         _pb_varint(4, max(1, count)),
-        _pb_varint(5, 1 if equipped else 0),
+        _pb_varint(5, int(item.get("use_type") or 0)),
         _pb_varint(7, int(item.get("grd_gfx") or 0)),
         _pb_varint(8, int(item.get("item_bless") or 2)),
         _pb_varint(9, int(item.get("inv_gfxid") or 0)),
@@ -179,7 +179,10 @@ def captured_inventory_entry(base_packet: bytes, item_id: int) -> bytes:
 
 
 def rewrite_inventory_entry(template: bytes, object_id: int, count: int, equipped: bool) -> bytes:
-    replacements = {1: object_id, 3: object_id + 1_000_000, 4: count, 5: int(equipped)}
+    # Field 3 is a client-side detail/definition linkage from the captured
+    # inventory dataset. Replacing it breaks the Detail button even though
+    # field 1 item actions still work.
+    replacements = {1: object_id, 4: count}
     output = bytearray()
     position = 0
     while position < len(template):

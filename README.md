@@ -81,6 +81,7 @@ powershell -ExecutionPolicy Bypass -File tools\ldplayer_smoke_test.ps1
 
 - `.status`: 레벨, 경험치, STR, DEX, 적용 무기 확인
 - `.inventory` 또는 `.inv`: 서버에 저장된 자동 획득 아이템 확인
+- `.item ID`: 강화 수치를 포함한 무기 공격력 확인
 - `.equip ID`: 인벤토리에 있는 무기 장착
 - `.unequip`: 현재 무기 해제
 - `.use ID`: 설정된 소모품 사용

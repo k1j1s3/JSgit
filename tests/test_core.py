@@ -44,6 +44,7 @@ class CoreGameTests(unittest.TestCase):
             "default_player": {
                 "name": "tester", "level": 1, "exp": 0, "strength": 16,
                 "dexterity": 50, "armor_class": 10, "weapon_item_id": 292532,
+                "weapon_enchant": 6,
                 "x": 1, "y": 2,
             },
             "combat": {
@@ -56,6 +57,8 @@ class CoreGameTests(unittest.TestCase):
             },
             "starter_inventory": {"292532": 1},
             "retired_inventory_items": [1],
+            "item_enchant_levels": {"292532": 6},
+            "item_display": {"292532": {"name": "Desert Runesword"}},
             "consumables": {"17923": {"hp_restore": 25}},
         }
         self.config_path.write_text(json.dumps(config), encoding="utf-8")
@@ -122,9 +125,25 @@ class CoreGameTests(unittest.TestCase):
     def test_weapon_equip_and_unequip_are_persisted(self):
         equipped = self.game.equip_weapon(100, 292532)
         self.assertTrue(equipped.accepted)
+        self.assertEqual(6, self.player.weapon_enchant)
         self.game.unequip_weapon(100)
         reloaded = CoreGame(self.content_db, self.runtime_db, self.config_path)
         self.assertEqual(0, reloaded.load_player(100).weapon_item_id)
+        self.assertEqual(0, reloaded.load_player(100).weapon_enchant)
+
+    def test_item_detail_includes_enhanced_weapon_damage(self):
+        detail = self.game.item_detail_text(292532)
+        self.assertIn("+6 Desert Runesword", detail)
+        self.assertIn("small 14", detail)
+        self.assertIn("large 15", detail)
+
+    def test_enchant_bonus_is_applied_to_combat(self):
+        self.player.strength = 10
+        self.player.level = 1
+        self.player.weapon_enchant = 6
+        result = self.game.attack(100, 200)
+        if result.hit:
+            self.assertGreaterEqual(result.damage, 7)
 
     def test_non_weapon_cannot_be_equipped(self):
         self.game.runtime.add_items(100, self.game.content.drops_for(14464))
@@ -194,8 +213,7 @@ class CoreGameTests(unittest.TestCase):
         item = self.game.content.load_item(1)
         unequipped = make_inventory_entry(item, 9_100_000, 1, equipped=False)
         equipped = make_inventory_entry(item, 9_100_000, 1, equipped=True)
-        self.assertNotEqual(unequipped, equipped)
-        self.assertIn(b"\x28\x01", equipped)
+        self.assertEqual(unequipped, equipped)
 
     def test_captured_weapon_template_is_rewritten_without_losing_description(self):
         entry = b"\x08\x01\x10\xb4\xed\x11\x18\x02\x20\x01\x28\x01\x92\x01\x03abc"
@@ -203,7 +221,8 @@ class CoreGameTests(unittest.TestCase):
         template = captured_inventory_entry(base, 292532)
         rewritten = rewrite_inventory_entry(template, 9_100_000, 2, False)
         self.assertIn(b"abc", rewritten)
-        self.assertIn(b"\x28\x00", rewritten)
+        self.assertIn(b"\x28\x01", rewritten)
+        self.assertIn(b"\x18\x02", rewritten)
 
 
 if __name__ == "__main__":

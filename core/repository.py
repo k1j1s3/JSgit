@@ -108,6 +108,7 @@ class RuntimeRepository:
                     max_mp INTEGER NOT NULL DEFAULT 50,
                     alignment INTEGER NOT NULL DEFAULT 0,
                     weapon_item_id INTEGER NOT NULL,
+                    weapon_enchant INTEGER NOT NULL DEFAULT 0,
                     x INTEGER NOT NULL,
                     y INTEGER NOT NULL
                 )
@@ -136,6 +137,7 @@ class RuntimeRepository:
                 "mp": "INTEGER NOT NULL DEFAULT 50",
                 "max_mp": "INTEGER NOT NULL DEFAULT 50",
                 "alignment": "INTEGER NOT NULL DEFAULT 0",
+                "weapon_enchant": "INTEGER NOT NULL DEFAULT 0",
             }
             for column, definition in migrations.items():
                 if column not in existing:
@@ -161,12 +163,12 @@ class RuntimeRepository:
                 INSERT INTO players (
                     object_id, name, level, exp, strength, dexterity, intelligence,
                     wisdom, constitution, charisma, armor_class, hp, max_hp, mp,
-                    max_mp, alignment, weapon_item_id, x, y
+                    max_mp, alignment, weapon_item_id, weapon_enchant, x, y
                 ) VALUES (
                     :object_id, :name, :level, :exp, :strength, :dexterity,
                     :intelligence, :wisdom, :constitution, :charisma,
                     :armor_class, :hp, :max_hp, :mp, :max_mp, :alignment,
-                    :weapon_item_id, :x, :y
+                    :weapon_item_id, :weapon_enchant, :x, :y
                 )
                 ON CONFLICT(object_id) DO UPDATE SET
                     name=excluded.name, level=excluded.level, exp=excluded.exp,
@@ -177,6 +179,7 @@ class RuntimeRepository:
                     hp=excluded.hp, max_hp=excluded.max_hp, mp=excluded.mp,
                     max_mp=excluded.max_mp, alignment=excluded.alignment,
                     weapon_item_id=excluded.weapon_item_id,
+                    weapon_enchant=excluded.weapon_enchant,
                     x=excluded.x, y=excluded.y
                 """,
                 values,

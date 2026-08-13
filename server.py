@@ -12,7 +12,7 @@ from pathlib import Path
 
 HOST = "0.0.0.0"
 PORT = 7867
-VERSION = "10C"
+VERSION = "10D"
 SEED1 = 0x412A6C59
 SEED2 = 0x5216255D
 SESSION_STARTED_AT = time.monotonic()
@@ -571,7 +571,7 @@ def handle(client, addr):
         f"template_name='$27331' template_gfx=8414 template_npc_id=28928 DB_reference='14464/4207' "
         f"obj_id={TEST_MONSTER_OBJ_ID} x={monster_x} y={monster_y}"
     )
-    print("[ACTION] Look 3 tiles to the right. Attack the living fierce wild boar. Step 10B should animate combat without the old 5+1 second startup block.")
+    print(f"[ACTION] Look 3 tiles to the right. Attack the living fierce wild boar. Step {VERSION} should animate combat without a startup block.")
 
     client.settimeout(30)
     while True:
@@ -584,7 +584,19 @@ def handle(client, addr):
         if not p:
             continue
 
-        if p[0] == 0x0A and len(p) == 10:
+        if p[0] == 0x15:
+            # The client sends a second world-state acknowledgement after the
+            # field becomes visible. Ignoring it makes the client wait for its
+            # roughly eight-second timeout before movement is unlocked.
+            print("[WORLD] Repeated world-state acknowledgement received.")
+            send_plain(
+                client,
+                s_state,
+                POST_15_REPLY,
+                "S->C repeated world-ack reply",
+            )
+
+        elif p[0] == 0x0A and len(p) == 10:
             x = int.from_bytes(p[1:3], "little")
             y = int.from_bytes(p[3:5], "little")
             heading = p[5]

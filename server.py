@@ -10,9 +10,11 @@ import struct
 import sqlite3
 from pathlib import Path
 
+from core import CoreGame
+
 HOST = "0.0.0.0"
 PORT = 7867
-VERSION = "10F"
+VERSION = "CORE-1.0"
 SEED1 = 0x412A6C59
 SEED2 = 0x5216255D
 SESSION_STARTED_AT = time.monotonic()
@@ -49,6 +51,8 @@ CHAR_UID = bytes.fromhex("eb a7 88 ea b3 b0 ec 82 ac 31")
 DB_PATH = Path(__file__).parent / "data" / "lineager_server_data.sqlite"
 TEST_NPC_ID = 14464         # 凶暴的山豬 (fierce wild boar) used by the packet template
 TEST_MONSTER_OBJ_ID = 9000001
+CONFIG_PATH = Path(__file__).parent / "config" / "server.json"
+RUNTIME_DB_PATH = Path(__file__).parent / "data" / "runtime.sqlite"
 
 
 
@@ -553,11 +557,18 @@ def handle(client, addr):
     local_x = 32720
     local_y = 32817
 
+    game = CoreGame(DB_PATH, RUNTIME_DB_PATH, CONFIG_PATH)
+    player_state = game.load_player(ACTOR_ID)
+    player_state.x, player_state.y = local_x, local_y
+    game.runtime.save_player(player_state)
+
     # Data-driven monster spawn from the current hot-update DB.
     npc = load_test_npc()
     monster_x = local_x + 3
     monster_y = local_y
-    monster_hp = max(1, int(npc.get("hp") or 1))
+    monster_state = game.spawn_monster(
+        TEST_NPC_ID, TEST_MONSTER_OBJ_ID, monster_x, monster_y
+    )
     last_combat_anim_at = 0.0
     combat_anim_interval = 0.55
     monster_packet = make_monster_object_packet(
@@ -609,6 +620,7 @@ def handle(client, addr):
             heading = p[5]
             seq = int.from_bytes(p[6:10], "little")
             local_x, local_y = x, y
+            game.move_player(ACTOR_ID, x, y)
             print(f"[WALK] x={x} y={y} heading={heading} seq={seq}")
             send_plain(client, s_state, make_move_ack(x, y, heading), "S->C MOVE-ACK")
 
@@ -634,25 +646,38 @@ def handle(client, addr):
                 now = time.monotonic()
                 if now - last_combat_anim_at >= combat_anim_interval:
                     last_combat_anim_at = now
-                    # First controlled combat-response test: the current APK's
-                    # S_ACTION handler queues an action directly on an actor.
-                    # 1 = generic attack, 2 = generic damage reaction.
+                    result = game.attack(ACTOR_ID, target_id)
+                    if not result.accepted:
+                        print(f"[COMBAT] rejected reason={result.reason}")
+                        continue
                     send_plain(
                         client, s_state,
                         make_object_action(ACTOR_ID, 1),
                         "S->C PLAYER-ATTACK-ACTION",
                     )
-                    time.sleep(0.06)
-                    send_plain(
-                        client, s_state,
-                        make_object_action(TEST_MONSTER_OBJ_ID, 2),
-                        "S->C MONSTER-DAMAGE-ACTION",
-                    )
+                    if result.hit:
+                        time.sleep(0.06)
+                        action_id = 8 if result.killed else 2
+                        label = "S->C MONSTER-DEATH-ACTION" if result.killed else "S->C MONSTER-DAMAGE-ACTION"
+                        send_plain(
+                            client, s_state,
+                            make_object_action(TEST_MONSTER_OBJ_ID, action_id),
+                            label,
+                        )
                     print(
-                        f"[COMBAT-ANIM] actor={ACTOR_ID} action=1 -> "
-                        f"target={TEST_MONSTER_OBJ_ID} action=2 "
-                        f"(visual-only test; HP still {monster_hp})"
+                        f"[COMBAT] hit={result.hit} damage={result.damage} "
+                        f"hp={result.hp_before}->{result.hp_after} "
+                        f"critical={result.critical} killed={result.killed}"
                     )
+                    if result.killed:
+                        drop_text = ", ".join(
+                            f"{drop.item_id}:{drop.name}x{drop.count}" for drop in result.drops
+                        ) or "none"
+                        print(
+                            f"[REWARD] exp=+{result.exp_gained} "
+                            f"player_level={player_state.level} player_exp={player_state.exp} "
+                            f"drops=[{drop_text}] persisted={RUNTIME_DB_PATH.name}"
+                        )
                 else:
                     print("[COMBAT-ANIM] duplicate auto-attack request throttled")
             elif target_id == 0:

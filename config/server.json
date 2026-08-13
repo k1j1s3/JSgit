@@ -1,0 +1,22 @@
+{
+  "default_player": {
+    "name": "local-player",
+    "level": 1,
+    "exp": 0,
+    "strength": 16,
+    "dexterity": 12,
+    "armor_class": 10,
+    "weapon_item_id": 1,
+    "x": 32720,
+    "y": 32817
+  },
+  "combat": {
+    "base_hit_chance": 0.8,
+    "minimum_damage": 1,
+    "armor_divisor": 5,
+    "critical_chance": 0.05,
+    "critical_multiplier": 2,
+    "exp_per_level": 10
+  }
+}
+

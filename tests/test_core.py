@@ -10,6 +10,7 @@ from core import CoreGame
 from core import (
     extend_inventory_snapshot, make_character_status, make_inventory_entry,
     make_inventory_snapshot,
+    captured_inventory_entry, rewrite_inventory_entry,
 )
 
 
@@ -33,6 +34,7 @@ class CoreGameTests(unittest.TestCase):
                 "dmg_large INTEGER, weapon_type INTEGER)"
             )
             connection.execute("INSERT INTO items VALUES (1, 4, 6, 1)")
+            connection.execute("INSERT INTO items VALUES (292532, 8, 9, 102)")
             connection.execute(
                 "CREATE TABLE npc_drops (npc_id INTEGER, item_id INTEGER, item_name_zh_tw TEXT)"
             )
@@ -41,7 +43,7 @@ class CoreGameTests(unittest.TestCase):
         config = {
             "default_player": {
                 "name": "tester", "level": 1, "exp": 0, "strength": 16,
-                "dexterity": 50, "armor_class": 10, "weapon_item_id": 1,
+                "dexterity": 50, "armor_class": 10, "weapon_item_id": 292532,
                 "x": 1, "y": 2,
             },
             "combat": {
@@ -52,7 +54,8 @@ class CoreGameTests(unittest.TestCase):
             "world": {
                 "corpse_seconds": 1.5, "respawn_seconds": 10.0, "auto_loot": True,
             },
-            "starter_inventory": {"1": 1},
+            "starter_inventory": {"292532": 1},
+            "retired_inventory_items": [1],
             "consumables": {"17923": {"hp_restore": 25}},
         }
         self.config_path.write_text(json.dumps(config), encoding="utf-8")
@@ -112,12 +115,12 @@ class CoreGameTests(unittest.TestCase):
         self.assertEqual("unknown-target", result.reason)
 
     def test_starter_weapon_is_seeded_once(self):
-        self.assertEqual(1, self.game.runtime.inventory(100)[1])
+        self.assertEqual(1, self.game.runtime.inventory(100)[292532])
         self.game.load_player(100)
-        self.assertEqual(1, self.game.runtime.inventory(100)[1])
+        self.assertEqual(1, self.game.runtime.inventory(100)[292532])
 
     def test_weapon_equip_and_unequip_are_persisted(self):
-        equipped = self.game.equip_weapon(100, 1)
+        equipped = self.game.equip_weapon(100, 292532)
         self.assertTrue(equipped.accepted)
         self.game.unequip_weapon(100)
         reloaded = CoreGame(self.content_db, self.runtime_db, self.config_path)
@@ -193,6 +196,14 @@ class CoreGameTests(unittest.TestCase):
         equipped = make_inventory_entry(item, 9_100_000, 1, equipped=True)
         self.assertNotEqual(unequipped, equipped)
         self.assertIn(b"\x28\x01", equipped)
+
+    def test_captured_weapon_template_is_rewritten_without_losing_description(self):
+        entry = b"\x08\x01\x10\xb4\xed\x11\x18\x02\x20\x01\x28\x01\x92\x01\x03abc"
+        base = b"\x55\x4c\x02\x0a" + bytes([len(entry)]) + entry + b"\x10\x01\xaa\xbb"
+        template = captured_inventory_entry(base, 292532)
+        rewritten = rewrite_inventory_entry(template, 9_100_000, 2, False)
+        self.assertIn(b"abc", rewritten)
+        self.assertIn(b"\x28\x00", rewritten)
 
 
 if __name__ == "__main__":

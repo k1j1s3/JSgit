@@ -33,6 +33,12 @@ class CoreGame:
                 if field in defaults:
                     setattr(player, field, int(defaults[field]))
             self.runtime.save_player(player)
+        retired_items = {int(item_id) for item_id in self.config.get("retired_inventory_items", [])}
+        for item_id in retired_items:
+            self.runtime.delete_item(object_id, item_id)
+        if player.weapon_item_id in retired_items:
+            player.weapon_item_id = int(self.config["default_player"]["weapon_item_id"])
+            self.runtime.save_player(player)
         for item_id, count in self.config.get("starter_inventory", {}).items():
             self.runtime.ensure_item(object_id, int(item_id), int(count))
         self.players[object_id] = player

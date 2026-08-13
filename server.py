@@ -17,11 +17,13 @@ from core import (
     make_character_status,
     make_inventory_entry,
     make_inventory_snapshot,
+    captured_inventory_entry,
+    rewrite_inventory_entry,
 )
 
 HOST = "0.0.0.0"
 PORT = 7867
-VERSION = "INVENTORY-EQUIPMENT-1.1"
+VERSION = "INVENTORY-EQUIPMENT-1.2"
 SEED1 = 0x412A6C59
 SEED2 = 0x5216255D
 SESSION_STARTED_AT = time.monotonic()
@@ -535,6 +537,9 @@ def handle(client, addr):
     # Send the captured initialization burst without replaying capture timing.
     # Delaying the final packet only extends the client's movement lock.
     for pkt in WORLD_BURST:
+        if pkt.startswith(b"\x55\x4c\x02"):
+            print("[WORLD] Skipped captured inventory; runtime snapshot will replace it.")
+            continue
         send_plain(client, s_state, pkt)
     print("[WORLD] Initial burst sent.")
 
@@ -624,12 +629,17 @@ def handle(client, addr):
             item = game.content.load_item(item_id)
             item_object_id = 9_100_000 + index
             inventory_objects[item_object_id] = item_id
-            entries.append(
-                make_inventory_entry(
+            if item_id == 292532:
+                entries.append(rewrite_inventory_entry(
+                    captured_inventory_entry(BASE_INVENTORY_PACKET, item_id),
+                    item_object_id, count,
+                    equipped=(item_id == player_state.weapon_item_id),
+                ))
+            else:
+                entries.append(make_inventory_entry(
                     item, item_object_id, count,
                     equipped=(item_id == player_state.weapon_item_id),
-                )
-            )
+                ))
         send_plain(
             client,
             s_state,

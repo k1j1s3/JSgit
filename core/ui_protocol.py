@@ -136,3 +136,68 @@ def make_inventory_snapshot(base_packet: bytes, entries: tuple[bytes, ...]) -> b
             kept.extend(proto[start:position])
     additions = b"".join(_pb_bytes(1, entry) for entry in entries)
     return b"\x55\x4c\x02" + bytes(kept) + additions + b"\x00\x00"
+
+
+def captured_inventory_entry(base_packet: bytes, item_id: int) -> bytes:
+    """Return an exact captured item template by its field-2 item id."""
+    proto = base_packet[3:-2]
+    position = 0
+    while position < len(proto):
+        tag, position = _read_varint(proto, position)
+        field, wire = tag >> 3, tag & 7
+        if wire == 2:
+            length, position = _read_varint(proto, position)
+            value = proto[position:position + length]
+            position += length
+            if field == 1:
+                inner = 0
+                while inner < len(value):
+                    inner_tag, inner = _read_varint(value, inner)
+                    inner_field, inner_wire = inner_tag >> 3, inner_tag & 7
+                    if inner_wire == 0:
+                        inner_value, inner = _read_varint(value, inner)
+                        if inner_field == 2 and inner_value == item_id:
+                            return value
+                    elif inner_wire == 1:
+                        inner += 8
+                    elif inner_wire == 2:
+                        inner_length, inner = _read_varint(value, inner)
+                        inner += inner_length
+                    elif inner_wire == 5:
+                        inner += 4
+                    else:
+                        break
+        elif wire == 0:
+            _, position = _read_varint(proto, position)
+        elif wire == 1:
+            position += 8
+        elif wire == 5:
+            position += 4
+        else:
+            raise ValueError(f"unsupported protobuf wire type {wire}")
+    raise KeyError(f"captured item template not found: {item_id}")
+
+
+def rewrite_inventory_entry(template: bytes, object_id: int, count: int, equipped: bool) -> bytes:
+    replacements = {1: object_id, 3: object_id + 1_000_000, 4: count, 5: int(equipped)}
+    output = bytearray()
+    position = 0
+    while position < len(template):
+        start = position
+        tag, position = _read_varint(template, position)
+        field, wire = tag >> 3, tag & 7
+        if wire == 0:
+            _, end = _read_varint(template, position)
+            output.extend(template[start:position])
+            output.extend(_varint(replacements[field]) if field in replacements else template[position:end])
+            position = end
+        elif wire == 1:
+            position += 8; output.extend(template[start:position])
+        elif wire == 2:
+            length, data_start = _read_varint(template, position)
+            position = data_start + length; output.extend(template[start:position])
+        elif wire == 5:
+            position += 4; output.extend(template[start:position])
+        else:
+            raise ValueError(f"unsupported protobuf wire type {wire}")
+    return bytes(output)

@@ -232,6 +232,14 @@ class RuntimeRepository:
             connection.commit()
             return True
 
+    def delete_item(self, object_id: int, item_id: int) -> None:
+        with closing(self._connect()) as connection:
+            connection.execute(
+                "DELETE FROM inventories WHERE object_id=? AND item_id=?",
+                (object_id, item_id),
+            )
+            connection.commit()
+
     def inventory(self, object_id: int) -> dict[int, int]:
         with closing(self._connect()) as connection:
             rows = connection.execute(

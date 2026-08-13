@@ -15,14 +15,15 @@
     "mp": 50,
     "max_mp": 50,
     "alignment": 0,
-    "weapon_item_id": 1,
+    "weapon_item_id": 292532,
     "x": 32720,
     "y": 32817
   },
   "sync_default_stats_on_login": true,
   "starter_inventory": {
-    "1": 1
+    "292532": 1
   },
+  "retired_inventory_items": [1],
   "consumables": {
     "17923": {
       "hp_restore": 25

@@ -1,4 +1,7 @@
 __pycache__/
+local-tools/
+l1j-runtime/
+l1j-classic/
 *.py[cod]
 *.log
 captures/

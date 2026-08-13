@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## L1J PC Migration Bootstrap
+
+- 공개 GPL-2.0 `l1j-en/classic`을 별도 로컬 작업 디렉터리에 도입
+- Apache Ant 1.10.17과 MariaDB 10.11.14 LTS 공식 체크섬 검증
+- Java 17에서 775개 Java 소스 빌드 및 `l1jen.jar` 생성 성공
+- L1J 전체 DB 104개 테이블과 NPC·맵·스폰 데이터 가져오기 완료
+- 실제 게임 서버 2000 포트와 MariaDB 3307 포트 기동 확인
+- 로컬 시작·종료·상태 확인 PowerShell 스크립트 추가
+
 ## Hunting Zone Pack v1
 
 - `.hunt` 명령으로 현재 로딩된 월드 안에 멧돼지 6마리 사냥 구역 생성

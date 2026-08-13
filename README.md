@@ -1,5 +1,7 @@
 # LineageR Local Server
 
+> 프로젝트 방향 전환: 모바일 호환성 연구는 보존 상태이며, 현재 주 개발 경로는 공개 GPL-2.0 `l1j-en/classic` 기반 리니지 1 PC 로컬 서버입니다. 구축 결과와 실행법은 [L1J_SETUP_KO.md](docs/L1J_SETUP_KO.md)를 참고하세요.
+
 개인 환경에서 프로토콜 호환성을 연구하기 위한 Python 기반 로컬 서버 프로토타입입니다.
 
 현재 최신 구현은 Core Server, World/Rewards, UI Sync, Equipment Effects와 Player Survival & Defense v1을 지원합니다. 플레이어와 몬스터의 상호 공격, 장비 AC 기반 피해 감소, HP 저장, 자동 부활까지 서버 상태와 캐릭터 UI에 동기화됩니다.

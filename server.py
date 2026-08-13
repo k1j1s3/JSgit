@@ -12,7 +12,7 @@ from pathlib import Path
 
 HOST = "0.0.0.0"
 PORT = 7867
-VERSION = "10D"
+VERSION = "10E"
 SEED1 = 0x412A6C59
 SEED2 = 0x5216255D
 SESSION_STARTED_AT = time.monotonic()
@@ -586,14 +586,21 @@ def handle(client, addr):
 
         if p[0] == 0x15:
             # The client sends a second world-state acknowledgement after the
-            # field becomes visible. Ignoring it makes the client wait for its
-            # roughly eight-second timeout before movement is unlocked.
+            # field becomes visible. At this point it is ready to consume the
+            # final 0x61 world-unlock packet; an earlier copy may be ignored
+            # while the scene is still loading.
             print("[WORLD] Repeated world-state acknowledgement received.")
             send_plain(
                 client,
                 s_state,
                 POST_15_REPLY,
                 "S->C repeated world-ack reply",
+            )
+            send_plain(
+                client,
+                s_state,
+                WELCOME_WORLD,
+                "S->C repeated welcome-world/unlock",
             )
 
         elif p[0] == 0x0A and len(p) == 10:

@@ -31,10 +31,12 @@ class CoreGameTests(unittest.TestCase):
             )
             connection.execute(
                 "CREATE TABLE items (item_id INTEGER PRIMARY KEY, dmg_small INTEGER, "
-                "dmg_large INTEGER, weapon_type INTEGER)"
+                "dmg_large INTEGER, weapon_type INTEGER, equipment_index INTEGER, "
+                "armor_ac INTEGER, name_zh_tw TEXT)"
             )
-            connection.execute("INSERT INTO items VALUES (1, 4, 6, 1)")
-            connection.execute("INSERT INTO items VALUES (292532, 8, 9, 102)")
+            connection.execute("INSERT INTO items VALUES (1, 4, 6, 1, 0, 0, 'knife')")
+            connection.execute("INSERT INTO items VALUES (292532, 8, 9, 102, 0, 0, 'runesword')")
+            connection.execute("INSERT INTO items VALUES (80581, 0, 0, 0, 64, 0, 'gloves')")
             connection.execute(
                 "CREATE TABLE npc_drops (npc_id INTEGER, item_id INTEGER, item_name_zh_tw TEXT)"
             )
@@ -55,10 +57,11 @@ class CoreGameTests(unittest.TestCase):
             "world": {
                 "corpse_seconds": 1.5, "respawn_seconds": 10.0, "auto_loot": True,
             },
-            "starter_inventory": {"292532": 1},
+            "starter_inventory": {"292532": 1, "80581": 1},
             "retired_inventory_items": [1],
             "item_enchant_levels": {"292532": 6},
             "item_display": {"292532": {"name": "Desert Runesword"}},
+            "armor_ac_overrides": {"80581": 2},
             "consumables": {"17923": {"hp_restore": 25}},
         }
         self.config_path.write_text(json.dumps(config), encoding="utf-8")
@@ -144,6 +147,21 @@ class CoreGameTests(unittest.TestCase):
         result = self.game.attack(100, 200)
         if result.hit:
             self.assertGreaterEqual(result.damage, 7)
+
+    def test_armor_slot_equip_recalculates_ac_and_persists(self):
+        result = self.game.equip_armor(100, 80581)
+        self.assertTrue(result.accepted)
+        self.assertEqual(8, self.player.armor_class)
+        self.assertEqual((80581, 0), self.game.runtime.equipment(100)[64])
+        reloaded = CoreGame(self.content_db, self.runtime_db, self.config_path)
+        self.assertEqual(8, reloaded.load_player(100).armor_class)
+
+    def test_armor_unequip_restores_base_ac(self):
+        self.game.equip_armor(100, 80581)
+        result = self.game.unequip_armor(100, 80581)
+        self.assertTrue(result.accepted)
+        self.assertEqual(10, self.player.armor_class)
+        self.assertEqual({}, self.game.runtime.equipment(100))
 
     def test_non_weapon_cannot_be_equipped(self):
         self.game.runtime.add_items(100, self.game.content.drops_for(14464))

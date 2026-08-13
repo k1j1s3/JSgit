@@ -124,6 +124,17 @@ class RuntimeRepository:
                 )
                 """
             )
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS equipment (
+                    object_id INTEGER NOT NULL,
+                    slot INTEGER NOT NULL,
+                    item_id INTEGER NOT NULL,
+                    enchant INTEGER NOT NULL DEFAULT 0,
+                    PRIMARY KEY (object_id, slot)
+                )
+                """
+            )
             existing = {
                 row[1] for row in connection.execute("PRAGMA table_info(players)")
             }
@@ -249,6 +260,38 @@ class RuntimeRepository:
                 "SELECT item_id, count FROM inventories WHERE object_id=?", (object_id,)
             ).fetchall()
         return {int(row["item_id"]): int(row["count"]) for row in rows}
+
+    def equipment(self, object_id: int) -> dict[int, tuple[int, int]]:
+        with closing(self._connect()) as connection:
+            rows = connection.execute(
+                "SELECT slot, item_id, enchant FROM equipment WHERE object_id=?",
+                (object_id,),
+            ).fetchall()
+        return {
+            int(row["slot"]): (int(row["item_id"]), int(row["enchant"]))
+            for row in rows
+        }
+
+    def equip_item(self, object_id: int, slot: int, item_id: int, enchant: int = 0) -> None:
+        with closing(self._connect()) as connection:
+            connection.execute(
+                """
+                INSERT INTO equipment (object_id, slot, item_id, enchant)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(object_id, slot) DO UPDATE SET
+                    item_id=excluded.item_id, enchant=excluded.enchant
+                """,
+                (object_id, slot, item_id, enchant),
+            )
+            connection.commit()
+
+    def unequip_slot(self, object_id: int, slot: int) -> None:
+        with closing(self._connect()) as connection:
+            connection.execute(
+                "DELETE FROM equipment WHERE object_id=? AND slot=?",
+                (object_id, slot),
+            )
+            connection.commit()
 
 
 def load_config(path: Path) -> dict:

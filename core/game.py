@@ -48,6 +48,7 @@ class CoreGame:
         for item_id, count in self.config.get("starter_inventory", {}).items():
             self.runtime.ensure_item(object_id, int(item_id), int(count))
         self.players[object_id] = player
+        self._recalculate_armor_class(player)
         return player
 
     def spawn_monster(self, npc_id: int, object_id: int, x: int, y: int) -> MonsterState:
@@ -104,7 +105,8 @@ class CoreGame:
         return (
             f"Lv.{player.level} EXP {player.exp}/{next_exp} "
             f"STR {player.strength} DEX {player.dexterity} "
-            f"weapon +{player.weapon_enchant} {player.weapon_item_id}"
+            f"weapon +{player.weapon_enchant} {player.weapon_item_id} "
+            f"AC {player.armor_class} armor_slots {len(self.runtime.equipment(object_id))}"
         )
 
     def inventory_text(self, object_id: int) -> str:
@@ -181,6 +183,47 @@ class CoreGame:
             True, f"Used {item_id}: HP {before}->{player.hp} (remaining {remaining})",
             item_id, remaining,
         )
+
+    def equip_armor(self, object_id: int, item_id: int) -> InventoryActionResult:
+        player = self.players[object_id]
+        inventory = self.runtime.inventory(object_id)
+        item = self.content.try_load_item(item_id)
+        if item is None:
+            return InventoryActionResult(False, f"Unknown item {item_id}", item_id)
+        if inventory.get(item_id, 0) < 1:
+            return InventoryActionResult(False, f"Item {item_id} is not in inventory", item_id)
+        slot = int(item.get("equipment_index") or 0)
+        if slot <= 0 or int(item.get("weapon_type") or 0) > 0:
+            return InventoryActionResult(False, f"Item {item_id} is not armor", item_id)
+        enchant = int(self.config.get("item_enchant_levels", {}).get(str(item_id), 0))
+        self.runtime.equip_item(object_id, slot, item_id, enchant)
+        self._recalculate_armor_class(player)
+        name = str(
+            self.config.get("item_display", {}).get(str(item_id), {}).get("name")
+            or item.get("name_zh_tw") or item.get("name_token") or item_id
+        )
+        return InventoryActionResult(True, f"Equipped armor {name}; AC {player.armor_class}", item_id, 1)
+
+    def unequip_armor(self, object_id: int, item_id: int) -> InventoryActionResult:
+        player = self.players[object_id]
+        equipment = self.runtime.equipment(object_id)
+        slot = next((slot for slot, value in equipment.items() if value[0] == item_id), None)
+        if slot is None:
+            return InventoryActionResult(False, f"Armor {item_id} is not equipped", item_id)
+        self.runtime.unequip_slot(object_id, slot)
+        self._recalculate_armor_class(player)
+        return InventoryActionResult(True, f"Unequipped armor {item_id}; AC {player.armor_class}", item_id, 1)
+
+    def _recalculate_armor_class(self, player: PlayerState) -> None:
+        base_ac = int(self.config["default_player"]["armor_class"])
+        bonus = 0
+        overrides = self.config.get("armor_ac_overrides", {})
+        for item_id, enchant in self.runtime.equipment(player.object_id).values():
+            item = self.content.load_item(item_id)
+            item_ac = int(overrides.get(str(item_id), item.get("armor_ac") or 0))
+            bonus += max(0, item_ac) + max(0, enchant)
+        player.armor_class = base_ac - bonus
+        self.runtime.save_player(player)
 
     def _apply_level_ups(self, player: PlayerState) -> None:
         while player.exp >= self.exp_required(player.level + 1):

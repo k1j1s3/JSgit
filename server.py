@@ -24,7 +24,7 @@ from core import (
 
 HOST = "0.0.0.0"
 PORT = 7867
-VERSION = "EQUIPMENT-STATS-2.0"
+VERSION = "ARMOR-LOADOUT-1.0"
 SEED1 = 0x412A6C59
 SEED2 = 0x5216255D
 SESSION_STARTED_AT = time.monotonic()
@@ -82,6 +82,18 @@ WORLD_BURST = unpack_world_burst()
 BASE_INVENTORY_PACKET = next(
     packet for packet in WORLD_BURST if packet.startswith(b"\x55\x4c\x02")
 )
+CAPTURED_INVENTORY_PACKETS = tuple(
+    packet for packet in WORLD_BURST if packet.startswith(b"\x55\x4c\x02")
+)
+
+
+def captured_item_template(item_id):
+    for packet in CAPTURED_INVENTORY_PACKETS:
+        try:
+            return captured_inventory_entry(packet, item_id)
+        except KeyError:
+            continue
+    raise KeyError(f"captured item template not found: {item_id}")
 
 
 def init_state(seed1, seed2):
@@ -632,14 +644,17 @@ def handle(client, addr):
         for index, (item_id, count) in enumerate(sorted(inventory.items())):
             item = game.content.load_item(item_id)
             item_object_id = 9_100_000 + index
-            if item_id == 292532:
+            if item_id in (292532, 80581):
                 # Preserve the exact object id used by the captured equipment
                 # and detail caches. Only its runtime count is rewritten.
-                item_object_id = 1_431_489
+                item_object_id = 1_431_489 if item_id == 292532 else 1_431_507
                 entries.append(rewrite_inventory_entry(
-                    captured_inventory_entry(BASE_INVENTORY_PACKET, item_id),
+                    captured_item_template(item_id),
                     item_object_id, count,
-                    equipped=(item_id == player_state.weapon_item_id),
+                    equipped=(
+                        item_id == player_state.weapon_item_id
+                        or any(value[0] == item_id for value in game.runtime.equipment(ACTOR_ID).values())
+                    ),
                 ))
             else:
                 entries.append(make_inventory_entry(
@@ -763,6 +778,14 @@ def handle(client, addr):
                     result = game.unequip_weapon(ACTOR_ID)
                 else:
                     result = game.equip_weapon(ACTOR_ID, item_id)
+            elif int(item.get("equipment_index") or 0) > 0:
+                equipped_armor = {
+                    value[0] for value in game.runtime.equipment(ACTOR_ID).values()
+                }
+                if item_id in equipped_armor:
+                    result = game.unequip_armor(ACTOR_ID, item_id)
+                else:
+                    result = game.equip_armor(ACTOR_ID, item_id)
             else:
                 result = game.use_item(ACTOR_ID, item_id)
             print(f"[ITEM-ACTION] accepted={result.accepted} {result.message}")

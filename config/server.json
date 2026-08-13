@@ -22,7 +22,8 @@
   },
   "sync_default_stats_on_login": true,
   "starter_inventory": {
-    "292532": 1
+    "292532": 1,
+    "80581": 1
   },
   "retired_inventory_items": [1],
   "item_enchant_levels": {
@@ -31,7 +32,13 @@
   "item_display": {
     "292532": {
       "name": "사막의 룬소드 (각인)"
+    },
+    "80581": {
+      "name": "수련자의 견고한 장갑"
     }
+  },
+  "armor_ac_overrides": {
+    "80581": 2
   },
   "consumables": {
     "17923": {

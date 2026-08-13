@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+*.log
+captures/
+logs/
+.venv/
+venv/
+.env
+.env.*
+*.apk
+*.zip
+*.tar
+data/lineager_server_data.sqlite
+

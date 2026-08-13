@@ -70,3 +70,11 @@ class WorldEvent:
     kind: str
     object_id: int
     npc_id: int
+
+
+@dataclass(frozen=True)
+class InventoryActionResult:
+    accepted: bool
+    message: str
+    item_id: int = 0
+    remaining: int = 0

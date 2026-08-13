@@ -20,7 +20,10 @@ class CombatEngine:
         if self.rng.random() > hit_chance:
             return AttackResult(True, False, 0, monster.hp, monster.hp, False, reason="miss")
 
-        weapon_max = self.content.weapon_damage(player.weapon_item_id, monster.size_type)
+        weapon_max = (
+            self.content.weapon_damage(player.weapon_item_id, monster.size_type)
+            if player.weapon_item_id else 1
+        )
         weapon_roll = self.rng.randint(1, weapon_max)
         strength_bonus = max(0, (player.strength - 10) // 3)
         level_bonus = max(0, player.level // 10)
@@ -51,4 +54,3 @@ class CombatEngine:
 
     def _experience(self, monster: MonsterState) -> int:
         return max(1, monster.level * int(self.config["exp_per_level"]))
-

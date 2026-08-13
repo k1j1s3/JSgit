@@ -26,9 +26,10 @@ class CoreGameTests(unittest.TestCase):
                 "INSERT INTO npcs VALUES (14464, 'boar', '$27331', 10, 12, 0, 0)"
             )
             connection.execute(
-                "CREATE TABLE items (item_id INTEGER PRIMARY KEY, dmg_small INTEGER, dmg_large INTEGER)"
+                "CREATE TABLE items (item_id INTEGER PRIMARY KEY, dmg_small INTEGER, "
+                "dmg_large INTEGER, weapon_type INTEGER)"
             )
-            connection.execute("INSERT INTO items VALUES (1, 4, 6)")
+            connection.execute("INSERT INTO items VALUES (1, 4, 6, 1)")
             connection.execute(
                 "CREATE TABLE npc_drops (npc_id INTEGER, item_id INTEGER, item_name_zh_tw TEXT)"
             )
@@ -48,6 +49,8 @@ class CoreGameTests(unittest.TestCase):
             "world": {
                 "corpse_seconds": 1.5, "respawn_seconds": 10.0, "auto_loot": True,
             },
+            "starter_inventory": {"1": 1},
+            "consumables": {"17923": {"hp_restore": 25}},
         }
         self.config_path.write_text(json.dumps(config), encoding="utf-8")
         self.game = CoreGame(
@@ -104,6 +107,39 @@ class CoreGameTests(unittest.TestCase):
         result = self.game.attack(100, 999)
         self.assertFalse(result.accepted)
         self.assertEqual("unknown-target", result.reason)
+
+    def test_starter_weapon_is_seeded_once(self):
+        self.assertEqual(1, self.game.runtime.inventory(100)[1])
+        self.game.load_player(100)
+        self.assertEqual(1, self.game.runtime.inventory(100)[1])
+
+    def test_weapon_equip_and_unequip_are_persisted(self):
+        equipped = self.game.equip_weapon(100, 1)
+        self.assertTrue(equipped.accepted)
+        self.game.unequip_weapon(100)
+        reloaded = CoreGame(self.content_db, self.runtime_db, self.config_path)
+        self.assertEqual(0, reloaded.load_player(100).weapon_item_id)
+
+    def test_non_weapon_cannot_be_equipped(self):
+        self.game.runtime.add_items(100, self.game.content.drops_for(14464))
+        result = self.game.equip_weapon(100, 17923)
+        self.assertFalse(result.accepted)
+
+    def test_consumable_heals_decrements_and_persists(self):
+        self.game.runtime.add_items(100, self.game.content.drops_for(14464))
+        self.player.hp = 50
+        result = self.game.use_item(100, 17923)
+        self.assertTrue(result.accepted)
+        self.assertEqual(75, self.player.hp)
+        self.assertNotIn(17923, self.game.runtime.inventory(100))
+        reloaded = CoreGame(self.content_db, self.runtime_db, self.config_path)
+        self.assertEqual(75, reloaded.load_player(100).hp)
+
+    def test_consumable_is_not_wasted_at_full_hp(self):
+        self.game.runtime.add_items(100, self.game.content.drops_for(14464))
+        result = self.game.use_item(100, 17923)
+        self.assertFalse(result.accepted)
+        self.assertEqual(1, self.game.runtime.inventory(100)[17923])
 
     def test_corpse_removal_and_respawn_lifecycle(self):
         while self.monster.alive:

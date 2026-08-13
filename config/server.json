@@ -20,6 +20,14 @@
     "y": 32817
   },
   "sync_default_stats_on_login": true,
+  "starter_inventory": {
+    "1": 1
+  },
+  "consumables": {
+    "17923": {
+      "hp_restore": 25
+    }
+  },
   "combat": {
     "base_hit_chance": 0.8,
     "minimum_damage": 1,

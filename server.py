@@ -20,7 +20,7 @@ from core import (
 
 HOST = "0.0.0.0"
 PORT = 7867
-VERSION = "UI-SYNC-1.1"
+VERSION = "INVENTORY-EQUIPMENT-1.0"
 SEED1 = 0x412A6C59
 SEED2 = 0x5216255D
 SESSION_STARTED_AT = time.monotonic()
@@ -789,8 +789,25 @@ def handle(client, addr):
                     reply_text = game.status_text(ACTOR_ID)
                 elif command in (".inventory", ".inv"):
                     reply_text = game.inventory_text(ACTOR_ID)
+                elif command.startswith(".equip "):
+                    try:
+                        item_id = int(command.split(maxsplit=1)[1])
+                        reply_text = game.equip_weapon(ACTOR_ID, item_id).message
+                        send_ui_state()
+                    except ValueError:
+                        reply_text = "Usage: .equip ITEM_ID"
+                elif command == ".unequip":
+                    reply_text = game.unequip_weapon(ACTOR_ID).message
+                    send_ui_state()
+                elif command.startswith(".use "):
+                    try:
+                        item_id = int(command.split(maxsplit=1)[1])
+                        reply_text = game.use_item(ACTOR_ID, item_id).message
+                        send_ui_state()
+                    except ValueError:
+                        reply_text = "Usage: .use ITEM_ID"
                 elif command == ".help":
-                    reply_text = "Commands: .status .inventory .help"
+                    reply_text = "Commands: .status .inventory .equip ID .unequip .use ID .help"
                 else:
                     reply_text = rpc["text"]
 

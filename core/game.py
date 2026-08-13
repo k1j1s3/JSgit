@@ -4,7 +4,7 @@ from pathlib import Path
 import time
 
 from .combat import CombatEngine
-from .models import AttackResult, MonsterState, PlayerState, WorldEvent
+from .models import AttackResult, InventoryActionResult, MonsterState, PlayerState, WorldEvent
 from .repository import ContentRepository, RuntimeRepository, load_config
 
 
@@ -33,6 +33,8 @@ class CoreGame:
                 if field in defaults:
                     setattr(player, field, int(defaults[field]))
             self.runtime.save_player(player)
+        for item_id, count in self.config.get("starter_inventory", {}).items():
+            self.runtime.ensure_item(object_id, int(item_id), int(count))
         self.players[object_id] = player
         return player
 
@@ -98,6 +100,50 @@ class CoreGame:
             return "Inventory is empty"
         return "Inventory " + ", ".join(
             f"item {item_id} x{count}" for item_id, count in sorted(inventory.items())
+        )
+
+    def equip_weapon(self, object_id: int, item_id: int) -> InventoryActionResult:
+        player = self.players[object_id]
+        inventory = self.runtime.inventory(object_id)
+        item = self.content.try_load_item(item_id)
+        if item is None:
+            return InventoryActionResult(False, f"Unknown item {item_id}", item_id)
+        if inventory.get(item_id, 0) < 1:
+            return InventoryActionResult(False, f"Item {item_id} is not in inventory", item_id)
+        if int(item.get("weapon_type") or 0) <= 0:
+            return InventoryActionResult(False, f"Item {item_id} is not a weapon", item_id)
+        player.weapon_item_id = item_id
+        self.runtime.save_player(player)
+        name = str(item.get("name_zh_tw") or item.get("name_token") or item_id)
+        return InventoryActionResult(True, f"Equipped {item_id}:{name}", item_id, inventory[item_id])
+
+    def unequip_weapon(self, object_id: int) -> InventoryActionResult:
+        player = self.players[object_id]
+        old_item_id = player.weapon_item_id
+        player.weapon_item_id = 0
+        self.runtime.save_player(player)
+        return InventoryActionResult(True, f"Unequipped weapon {old_item_id}", old_item_id)
+
+    def use_item(self, object_id: int, item_id: int) -> InventoryActionResult:
+        player = self.players[object_id]
+        consumable = self.config.get("consumables", {}).get(str(item_id))
+        if consumable is None:
+            return InventoryActionResult(False, f"Item {item_id} is not usable", item_id)
+        inventory = self.runtime.inventory(object_id)
+        if inventory.get(item_id, 0) < 1:
+            return InventoryActionResult(False, f"Item {item_id} is not in inventory", item_id)
+        heal = max(0, int(consumable.get("hp_restore", 0)))
+        if heal and player.hp >= player.max_hp:
+            return InventoryActionResult(False, "HP is already full", item_id, inventory[item_id])
+        if not self.runtime.remove_item(object_id, item_id, 1):
+            return InventoryActionResult(False, f"Could not consume item {item_id}", item_id)
+        before = player.hp
+        player.hp = min(player.max_hp, player.hp + heal)
+        self.runtime.save_player(player)
+        remaining = self.runtime.inventory(object_id).get(item_id, 0)
+        return InventoryActionResult(
+            True, f"Used {item_id}: HP {before}->{player.hp} (remaining {remaining})",
+            item_id, remaining,
         )
 
     def _apply_level_ups(self, player: PlayerState) -> None:

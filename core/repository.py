@@ -68,6 +68,12 @@ class ContentRepository:
             raise KeyError(f"unknown item_id={item_id}")
         return dict(row)
 
+    def try_load_item(self, item_id: int) -> dict | None:
+        try:
+            return self.load_item(item_id)
+        except KeyError:
+            return None
+
 
 class RuntimeRepository:
     def __init__(self, path: Path):
@@ -190,6 +196,41 @@ class RuntimeRepository:
                     (object_id, reward.item_id, reward.count),
                 )
             connection.commit()
+
+    def ensure_item(self, object_id: int, item_id: int, count: int = 1) -> None:
+        with closing(self._connect()) as connection:
+            connection.execute(
+                """
+                INSERT INTO inventories (object_id, item_id, count)
+                VALUES (?, ?, ?)
+                ON CONFLICT(object_id, item_id) DO NOTHING
+                """,
+                (object_id, item_id, max(1, count)),
+            )
+            connection.commit()
+
+    def remove_item(self, object_id: int, item_id: int, count: int = 1) -> bool:
+        count = max(1, int(count))
+        with closing(self._connect()) as connection:
+            row = connection.execute(
+                "SELECT count FROM inventories WHERE object_id=? AND item_id=?",
+                (object_id, item_id),
+            ).fetchone()
+            if row is None or int(row["count"]) < count:
+                return False
+            remaining = int(row["count"]) - count
+            if remaining:
+                connection.execute(
+                    "UPDATE inventories SET count=? WHERE object_id=? AND item_id=?",
+                    (remaining, object_id, item_id),
+                )
+            else:
+                connection.execute(
+                    "DELETE FROM inventories WHERE object_id=? AND item_id=?",
+                    (object_id, item_id),
+                )
+            connection.commit()
+            return True
 
     def inventory(self, object_id: int) -> dict[int, int]:
         with closing(self._connect()) as connection:

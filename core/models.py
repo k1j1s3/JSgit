@@ -11,7 +11,16 @@ class PlayerState:
     exp: int = 0
     strength: int = 16
     dexterity: int = 12
+    intelligence: int = 9
+    wisdom: int = 6
+    constitution: int = 16
+    charisma: int = 7
     armor_class: int = 10
+    hp: int = 100
+    max_hp: int = 100
+    mp: int = 50
+    max_mp: int = 50
+    alignment: int = 0
     weapon_item_id: int = 1
     x: int = 0
     y: int = 0
@@ -61,4 +70,3 @@ class WorldEvent:
     kind: str
     object_id: int
     npc_id: int
-

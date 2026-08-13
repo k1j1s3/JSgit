@@ -7,6 +7,7 @@ from contextlib import closing
 from pathlib import Path
 
 from core import CoreGame
+from core import extend_inventory_snapshot, make_character_status, make_inventory_entry
 
 
 class CoreGameTests(unittest.TestCase):
@@ -106,6 +107,23 @@ class CoreGameTests(unittest.TestCase):
             self.game.attack(100, 200)
         self.assertIn("EXP 100/", self.game.status_text(100))
         self.assertIn("item 17923 x1", self.game.inventory_text(100))
+
+    def test_character_status_packet_contains_runtime_values(self):
+        packet = make_character_status(self.player)
+        self.assertEqual(0x0E, packet[0])
+        self.assertEqual(100, int.from_bytes(packet[1:5], "little"))
+        self.assertEqual(self.player.level, packet[5])
+        self.assertEqual(self.player.exp, int.from_bytes(packet[6:10], "little"))
+        self.assertEqual(56, len(packet))
+
+    def test_inventory_snapshot_preserves_base_and_adds_item(self):
+        item = self.game.content.load_item(1)
+        entry = make_inventory_entry(item, 9_100_000, 3)
+        base = b"\x55\x4c\x02\x10\x01\x50\x64\x00\x00"
+        packet = extend_inventory_snapshot(base, (entry,))
+        self.assertTrue(packet.startswith(b"\x55\x4c\x02\x10\x01\x50\x64"))
+        self.assertIn(entry, packet)
+        self.assertTrue(packet.endswith(b"\x00\x00"))
 
 
 if __name__ == "__main__":

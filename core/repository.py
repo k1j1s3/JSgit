@@ -59,6 +59,15 @@ class ContentRepository:
             for row in rows
         )
 
+    def load_item(self, item_id: int) -> dict:
+        with closing(self._connect()) as connection:
+            row = connection.execute(
+                "SELECT * FROM items WHERE item_id=?", (item_id,)
+            ).fetchone()
+        if row is None:
+            raise KeyError(f"unknown item_id={item_id}")
+        return dict(row)
+
 
 class RuntimeRepository:
     def __init__(self, path: Path):
@@ -82,7 +91,16 @@ class RuntimeRepository:
                     exp INTEGER NOT NULL,
                     strength INTEGER NOT NULL,
                     dexterity INTEGER NOT NULL,
+                    intelligence INTEGER NOT NULL DEFAULT 9,
+                    wisdom INTEGER NOT NULL DEFAULT 6,
+                    constitution INTEGER NOT NULL DEFAULT 16,
+                    charisma INTEGER NOT NULL DEFAULT 7,
                     armor_class INTEGER NOT NULL,
+                    hp INTEGER NOT NULL DEFAULT 100,
+                    max_hp INTEGER NOT NULL DEFAULT 100,
+                    mp INTEGER NOT NULL DEFAULT 50,
+                    max_mp INTEGER NOT NULL DEFAULT 50,
+                    alignment INTEGER NOT NULL DEFAULT 0,
                     weapon_item_id INTEGER NOT NULL,
                     x INTEGER NOT NULL,
                     y INTEGER NOT NULL
@@ -99,6 +117,25 @@ class RuntimeRepository:
                 )
                 """
             )
+            existing = {
+                row[1] for row in connection.execute("PRAGMA table_info(players)")
+            }
+            migrations = {
+                "intelligence": "INTEGER NOT NULL DEFAULT 9",
+                "wisdom": "INTEGER NOT NULL DEFAULT 6",
+                "constitution": "INTEGER NOT NULL DEFAULT 16",
+                "charisma": "INTEGER NOT NULL DEFAULT 7",
+                "hp": "INTEGER NOT NULL DEFAULT 100",
+                "max_hp": "INTEGER NOT NULL DEFAULT 100",
+                "mp": "INTEGER NOT NULL DEFAULT 50",
+                "max_mp": "INTEGER NOT NULL DEFAULT 50",
+                "alignment": "INTEGER NOT NULL DEFAULT 0",
+            }
+            for column, definition in migrations.items():
+                if column not in existing:
+                    connection.execute(
+                        f"ALTER TABLE players ADD COLUMN {column} {definition}"
+                    )
             connection.commit()
 
     def load_player(self, object_id: int, defaults: dict) -> PlayerState:
@@ -116,16 +153,23 @@ class RuntimeRepository:
             connection.execute(
                 """
                 INSERT INTO players (
-                    object_id, name, level, exp, strength, dexterity,
-                    armor_class, weapon_item_id, x, y
+                    object_id, name, level, exp, strength, dexterity, intelligence,
+                    wisdom, constitution, charisma, armor_class, hp, max_hp, mp,
+                    max_mp, alignment, weapon_item_id, x, y
                 ) VALUES (
                     :object_id, :name, :level, :exp, :strength, :dexterity,
-                    :armor_class, :weapon_item_id, :x, :y
+                    :intelligence, :wisdom, :constitution, :charisma,
+                    :armor_class, :hp, :max_hp, :mp, :max_mp, :alignment,
+                    :weapon_item_id, :x, :y
                 )
                 ON CONFLICT(object_id) DO UPDATE SET
                     name=excluded.name, level=excluded.level, exp=excluded.exp,
                     strength=excluded.strength, dexterity=excluded.dexterity,
+                    intelligence=excluded.intelligence, wisdom=excluded.wisdom,
+                    constitution=excluded.constitution, charisma=excluded.charisma,
                     armor_class=excluded.armor_class,
+                    hp=excluded.hp, max_hp=excluded.max_hp, mp=excluded.mp,
+                    max_mp=excluded.max_mp, alignment=excluded.alignment,
                     weapon_item_id=excluded.weapon_item_id,
                     x=excluded.x, y=excluded.y
                 """,

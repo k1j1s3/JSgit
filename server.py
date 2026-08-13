@@ -11,11 +11,16 @@ import struct
 import sqlite3
 from pathlib import Path
 
-from core import CoreGame
+from core import (
+    CoreGame,
+    extend_inventory_snapshot,
+    make_character_status,
+    make_inventory_entry,
+)
 
 HOST = "0.0.0.0"
 PORT = 7867
-VERSION = "WORLD-1.0"
+VERSION = "UI-SYNC-1.0"
 SEED1 = 0x412A6C59
 SEED2 = 0x5216255D
 SESSION_STARTED_AT = time.monotonic()
@@ -70,6 +75,9 @@ def unpack_world_burst():
 
 
 WORLD_BURST = unpack_world_burst()
+BASE_INVENTORY_PACKET = next(
+    packet for packet in WORLD_BURST if packet.startswith(b"\x55\x4c\x02")
+)
 
 
 def init_state(seed1, seed2):
@@ -597,6 +605,32 @@ def handle(client, addr):
             "S->C SYSTEM-NOTICE",
         )
 
+    def send_ui_state():
+        send_plain(
+            client,
+            s_state,
+            make_character_status(player_state),
+            "S->C CHARACTER-STATUS-UI",
+        )
+        inventory = game.runtime.inventory(ACTOR_ID)
+        entries = []
+        for index, (item_id, count) in enumerate(sorted(inventory.items())):
+            item = game.content.load_item(item_id)
+            entries.append(
+                make_inventory_entry(item, 9_100_000 + index, count)
+            )
+        if entries:
+            send_plain(
+                client,
+                s_state,
+                extend_inventory_snapshot(BASE_INVENTORY_PACKET, tuple(entries)),
+                "S->C INVENTORY-UI-SNAPSHOT",
+            )
+        print(
+            f"[UI-SYNC] status level={player_state.level} exp={player_state.exp} "
+            f"inventory={inventory}"
+        )
+
     def process_world_events():
         for event in game.tick():
             if event.kind == "remove":
@@ -649,6 +683,7 @@ def handle(client, addr):
                 WELCOME_WORLD,
                 "S->C repeated welcome-world/unlock",
             )
+            send_ui_state()
 
         elif p[0] == 0x0A and len(p) == 10:
             x = int.from_bytes(p[1:3], "little")
@@ -717,6 +752,7 @@ def handle(client, addr):
                         send_notice(
                             f"Defeated boar: EXP +{result.exp_gained}; loot {drop_text}"
                         )
+                        send_ui_state()
                 else:
                     print("[COMBAT-ANIM] duplicate auto-attack request throttled")
             elif target_id == 0:

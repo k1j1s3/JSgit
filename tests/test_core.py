@@ -202,6 +202,13 @@ class CoreGameTests(unittest.TestCase):
         self.assertTrue(self.monster.alive)
         self.assertTrue(second.alive)
 
+    def test_monster_group_has_unique_objects_and_positions(self):
+        group = self.game.spawn_monster_group(
+            14464, 300, 10, 10, ((1, 0), (0, 1), (-1, 0), (0, -1))
+        )
+        self.assertEqual([300, 301, 302, 303], [monster.object_id for monster in group])
+        self.assertEqual(4, len({(monster.x, monster.y) for monster in group}))
+
     def test_starter_weapon_is_seeded_once(self):
         self.assertEqual(1, self.game.runtime.inventory(100)[292532])
         self.game.load_player(100)

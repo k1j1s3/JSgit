@@ -58,6 +58,15 @@ class CoreGame:
         self.monsters[object_id] = monster
         return monster
 
+    def spawn_monster_group(
+        self, npc_id: int, first_object_id: int, center_x: int, center_y: int,
+        offsets: tuple[tuple[int, int], ...],
+    ) -> tuple[MonsterState, ...]:
+        return tuple(
+            self.spawn_monster(npc_id, first_object_id + index, center_x + dx, center_y + dy)
+            for index, (dx, dy) in enumerate(offsets)
+        )
+
     def move_player(self, object_id: int, x: int, y: int) -> None:
         player = self.players[object_id]
         player.x, player.y = x, y

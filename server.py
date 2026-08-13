@@ -24,7 +24,7 @@ from core import (
 
 HOST = "0.0.0.0"
 PORT = 7867
-VERSION = "WORLD-INTERACTION-PACK-1.0"
+VERSION = "HUNTING-ZONE-PACK-1.0"
 SEED1 = 0x412A6C59
 SEED2 = 0x5216255D
 SESSION_STARTED_AT = time.monotonic()
@@ -615,6 +615,7 @@ def handle(client, addr):
     monster_packet = make_monster_object_packet(
         npc, TEST_MONSTER_OBJ_ID, monster_x, monster_y, heading=6
     )
+    monster_packets = {TEST_MONSTER_OBJ_ID: monster_packet}
     # Step10B: spawn immediately; no extra one-second blocking delay.
     send_plain(client, s_state, monster_packet, "S->C LIVE-MONSTER-CLONE-9E")
     print(
@@ -677,25 +678,63 @@ def handle(client, addr):
 
     inventory_objects = {}
 
+    def enter_hunting_zone():
+        nonlocal local_x, local_y, monster_state, monster_packet, last_monster_attack_at
+        for object_id in tuple(game.monsters):
+            send_plain(client, s_state, make_object_remove(object_id), "S->C HUNT-ZONE-CLEAR")
+        game.monsters.clear()
+        monster_packets.clear()
+        local_x, local_y = 32720, 32817
+        game.move_player(ACTOR_ID, local_x, local_y)
+        send_plain(client, s_state, make_move_ack(local_x, local_y, 0), "S->C HUNT-ZONE-POSITION")
+        offsets = ((3, 0), (2, 2), (0, 3), (-2, 2), (-3, 0), (0, -3))
+        monsters = game.spawn_monster_group(
+            TEST_NPC_ID, TEST_MONSTER_OBJ_ID, local_x, local_y, offsets
+        )
+        for monster in monsters:
+            packet = make_monster_object_packet(npc, monster.object_id, monster.x, monster.y, heading=6)
+            monster_packets[monster.object_id] = packet
+            send_plain(client, s_state, packet, "S->C HUNT-ZONE-MONSTER")
+        monster_state = game.monsters[TEST_MONSTER_OBJ_ID]
+        monster_packet = monster_packets[TEST_MONSTER_OBJ_ID]
+        last_monster_attack_at = time.monotonic()
+        send_notice("Hunting zone entered: 6 fierce wild boars. Use .home to clear the zone.")
+        print(f"[HUNT-ZONE] entered monsters={list(game.monsters)} x={local_x} y={local_y}")
+
+    def leave_hunting_zone():
+        for object_id in tuple(game.monsters):
+            send_plain(client, s_state, make_object_remove(object_id), "S->C HUNT-ZONE-LEAVE")
+        game.monsters.clear()
+        monster_packets.clear()
+        send_notice("Returned to the safe training area. Use .hunt to hunt again.")
+        print("[HUNT-ZONE] cleared")
+
     def process_world_events():
         nonlocal last_monster_attack_at, player_revive_at
         now = time.monotonic()
         attack_interval = float(game.config["combat"].get("monster_attack_interval", 2.5))
         attack_range = int(game.config["combat"].get("monster_attack_range", 3))
-        in_attack_range = max(
-            abs(player_state.x - monster_state.x),
-            abs(player_state.y - monster_state.y),
-        ) <= attack_range
+        nearby_monsters = [
+            monster for monster in game.monsters.values()
+            if monster.alive and max(
+                abs(player_state.x - monster.x), abs(player_state.y - monster.y)
+            ) <= attack_range
+        ]
+        attacking_monster = min(
+            nearby_monsters,
+            key=lambda monster: max(abs(player_state.x - monster.x), abs(player_state.y - monster.y)),
+            default=None,
+        )
         if (
-            monster_state.alive and player_state.hp > 0 and in_attack_range
+            attacking_monster is not None and player_state.hp > 0
             and now - last_monster_attack_at >= attack_interval
         ):
             last_monster_attack_at = now
-            result = game.monster_attack(TEST_MONSTER_OBJ_ID, ACTOR_ID)
+            result = game.monster_attack(attacking_monster.object_id, ACTOR_ID)
             if result.accepted:
                 send_plain(
                     client, s_state,
-                    make_object_action(TEST_MONSTER_OBJ_ID, 1),
+                    make_object_action(attacking_monster.object_id, 1),
                     "S->C MONSTER-ATTACK-ACTION",
                 )
                 time.sleep(0.06)
@@ -734,12 +773,12 @@ def handle(client, addr):
                 send_plain(
                     client,
                     s_state,
-                    monster_packet,
+                    monster_packets[event.object_id],
                     "S->C MONSTER-RESPAWN",
                 )
                 print(
                     f"[WORLD] monster respawned obj_id={event.object_id} "
-                    f"hp={monster_state.hp}/{monster_state.max_hp}"
+                    f"hp={game.monsters[event.object_id].hp}/{game.monsters[event.object_id].max_hp}"
                 )
                 send_notice("Fierce wild boar respawned")
             elif event.kind == "ground-expire":
@@ -844,7 +883,7 @@ def handle(client, addr):
         elif p[0] == 0x89 and len(p) >= 5:
             target_id = int.from_bytes(p[1:5], "little", signed=False)
             print(f"[ATTACK] C_ATTACK_CONTINUE target_obj_id={target_id}")
-            if target_id == TEST_MONSTER_OBJ_ID:
+            if target_id in game.monsters:
                 now = time.monotonic()
                 if now - last_combat_anim_at >= combat_anim_interval:
                     last_combat_anim_at = now
@@ -863,7 +902,7 @@ def handle(client, addr):
                         label = "S->C MONSTER-DEATH-ACTION" if result.killed else "S->C MONSTER-DAMAGE-ACTION"
                         send_plain(
                             client, s_state,
-                            make_object_action(TEST_MONSTER_OBJ_ID, action_id),
+                            make_object_action(target_id, action_id),
                             label,
                         )
                     print(
@@ -916,6 +955,12 @@ def handle(client, addr):
                     reply_text = game.equipment_text(ACTOR_ID)
                 elif command == ".drops":
                     reply_text = game.ground_items_text()
+                elif command in (".hunt", ".hunting"):
+                    enter_hunting_zone()
+                    reply_text = "Hunting zone ready: 6 monsters spawned"
+                elif command == ".home":
+                    leave_hunting_zone()
+                    reply_text = "Safe training area restored"
                 elif command.startswith(".pickup "):
                     try:
                         object_id = int(command.split(maxsplit=1)[1])
@@ -949,7 +994,7 @@ def handle(client, addr):
                     except ValueError:
                         reply_text = "Usage: .item ITEM_ID"
                 elif command == ".help":
-                    reply_text = "Commands: .status .inventory .equipment .drops .pickup OBJ .item ID .equip ID .unequip .use ID .help"
+                    reply_text = "Commands: .hunt .home .status .inventory .equipment .drops .pickup OBJ .item ID .equip ID .unequip .use ID .help"
                 else:
                     reply_text = rpc["text"]
 

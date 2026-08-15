@@ -38,4 +38,4 @@ foreach ($device in @("emulator-5554", "emulator-5556")) {
 
 $rows | ConvertTo-Json | Set-Content -LiteralPath $pidFile -Encoding UTF8
 $rows | Format-Table -AutoSize
-Write-Output "Detection-only monitors started (dry_run=true)."
+Write-Output "Auto-hunt monitors started. Global and per-device action settings apply."

@@ -14,7 +14,10 @@ class DailyQuestRotationTest(unittest.TestCase):
         tasks = ROTATION.tasks_for(self.config, "광전1"); self.assertEqual("clan_adena_donation_5", tasks[0]); self.assertIn("clan_easy", tasks); self.assertIn("clan_hard", tasks); self.assertNotIn("clan_normal", tasks)
     def test_main_runs_all_three_clan_quests(self): self.assertIn("clan_normal", ROTATION.tasks_for(self.config, "마검1"))
     def test_rotation_returns_to_main(self):
-        state = ROTATION.new_state(self.config, date(2026, 8, 16)); state.active_character = "쫄법1"; self.assertEqual("마검1", ROTATION.next_character(self.config, state))
+        state = ROTATION.new_state(self.config, date(2026, 8, 16)); state.active_character = "쫄법1"; state.completed["쫄법1"] = ROTATION.tasks_for(self.config, "쫄법1"); self.assertEqual("마검1", ROTATION.next_character(self.config, state))
+    def test_rotation_refuses_to_leave_incomplete_character(self):
+        state = ROTATION.new_state(self.config, date(2026, 8, 16)); state.active_character = "광전1"
+        with self.assertRaises(RuntimeError): ROTATION.next_character(self.config, state)
     def test_completed_task_is_persisted(self):
         with tempfile.TemporaryDirectory() as temporary:
             path = Path(temporary) / "state.json"

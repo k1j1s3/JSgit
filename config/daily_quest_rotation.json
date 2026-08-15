@@ -9,8 +9,8 @@
     {"name": "쫄법1", "row_point": [250, 420], "role": "alt"}
   ],
   "task_policy": {
-    "main": ["clan_adena_donation_5", "daily_claw", "daily_kill_1000", "daily_craft_high_cloth", "clan_easy", "clan_normal", "clan_hard"],
-    "alt": ["clan_adena_donation_5", "daily_claw", "daily_kill_1000", "daily_craft_high_cloth", "clan_easy", "clan_hard"]
+    "main": ["clan_adena_donation_5", "clan_easy", "clan_normal", "clan_hard", "daily_claw", "daily_craft_high_cloth", "daily_kill_1000"],
+    "alt": ["clan_adena_donation_5", "clan_easy", "clan_hard", "daily_claw", "daily_craft_high_cloth", "daily_kill_1000"]
   },
   "donation": {
     "menu_point": [1235, 43], "clan_point": [933, 255],

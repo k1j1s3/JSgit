@@ -55,6 +55,10 @@ def next_task(config: dict, state: RotationState, name: str | None = None) -> st
     return next((task for task in tasks_for(config, selected) if task not in done), None)
 
 def next_character(config: dict, state: RotationState) -> str:
+    done = set(state.completed.get(state.active_character, []))
+    pending = [task for task in tasks_for(config, state.active_character) if task not in done]
+    if pending:
+        raise RuntimeError(f"cannot switch from {state.active_character}; pending: {','.join(pending)}")
     names = [item["name"] for item in config["characters"]]; index = names.index(state.active_character)
     return names[(index + 1) % len(names)]
 

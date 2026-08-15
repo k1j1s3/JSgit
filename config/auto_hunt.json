@@ -1,0 +1,77 @@
+{
+  "adb_path": "C:\\LDPlayer\\LDPlayer9\\adb.exe",
+  "poll_interval_seconds": 0.7,
+  "evidence_directory": "data/bot-evidence",
+  "dry_run": true,
+  "detection": {
+    "minimum_hp_drop_ratio": 0.08,
+    "hp_drop_window_seconds": 2.5,
+    "minimum_cyan_pixels": 900,
+    "safe_zone_cyan_pixels": 150,
+    "cooldown_seconds": 45
+  },
+  "devices": [
+    {
+      "name": "player-1",
+      "device": "emulator-5554",
+      "regions": {
+        "hp_bar": [88, 41, 319, 58],
+        "world_player_names": [350, 145, 1070, 500],
+        "zone_label": [1070, 285, 1265, 345]
+      },
+      "return_actions": [
+        {"type": "tap", "point": [1165, 635], "label": "return-scroll hotbar slot (calibrate before enabling)"},
+        {"type": "wait", "seconds": 4.0, "label": "wait for town load"}
+      ],
+      "next_route": 0,
+      "hunting_routes": [
+        {
+          "name": "route-a",
+          "actions": [
+            {"type": "tap", "point": [1232, 301], "label": "open remembered places (calibrate)"},
+            {"type": "wait", "seconds": 1.5},
+            {"type": "tap", "point": [190, 160], "label": "first remembered hunting place (calibrate)"},
+            {"type": "wait", "seconds": 4.0},
+            {"type": "tap", "point": [1000, 548], "label": "AUTO button"}
+          ]
+        },
+        {
+          "name": "route-b",
+          "actions": [
+            {"type": "tap", "point": [1232, 301], "label": "open remembered places (calibrate)"},
+            {"type": "wait", "seconds": 1.5},
+            {"type": "tap", "point": [190, 235], "label": "second remembered hunting place (calibrate)"},
+            {"type": "wait", "seconds": 4.0},
+            {"type": "tap", "point": [1000, 548], "label": "AUTO button"}
+          ]
+        }
+      ]
+    },
+    {
+      "name": "player-2",
+      "device": "emulator-5556",
+      "regions": {
+        "hp_bar": [88, 41, 319, 58],
+        "world_player_names": [350, 145, 1070, 500],
+        "zone_label": [1070, 285, 1265, 345]
+      },
+      "return_actions": [
+        {"type": "tap", "point": [1165, 635], "label": "return-scroll hotbar slot (calibrate before enabling)"},
+        {"type": "wait", "seconds": 4.0, "label": "wait for town load"}
+      ],
+      "next_route": 0,
+      "hunting_routes": [
+        {
+          "name": "route-a",
+          "actions": [
+            {"type": "tap", "point": [1232, 301], "label": "open remembered places (calibrate)"},
+            {"type": "wait", "seconds": 1.5},
+            {"type": "tap", "point": [190, 160], "label": "first remembered hunting place (calibrate)"},
+            {"type": "wait", "seconds": 4.0},
+            {"type": "tap", "point": [1000, 548], "label": "AUTO button"}
+          ]
+        }
+      ]
+    }
+  ]
+}

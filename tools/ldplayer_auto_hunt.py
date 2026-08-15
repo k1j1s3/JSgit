@@ -219,6 +219,16 @@ def detect_threat(history: deque[FrameState], cfg: dict) -> tuple[bool, str]:
     return (hp_signal or pvp_ui_signal) and not_safe, reason
 
 
+def recover_and_resume(adb: str, device: str, device_cfg: dict, logger):
+    """Return to town, finish mandatory town chores, then resume hunting."""
+    execute_actions(adb, device, device_cfg["return_actions"], logger)
+    execute_actions(adb, device, device_cfg.get("town_actions", []), logger)
+    route = random.choice(device_cfg["hunting_routes"])
+    logger.info("random hunting route selected: %s", route.get("name", ""))
+    execute_actions(adb, device, route["actions"], logger)
+    return route
+
+
 def device_loop(global_cfg: dict, device_cfg: dict, once: bool = False):
     adb = global_cfg["adb_path"]
     device = device_cfg["device"]
@@ -259,10 +269,7 @@ def device_loop(global_cfg: dict, device_cfg: dict, once: bool = False):
                     device_cfg.get("actions_enabled", False),
                 )
             else:
-                execute_actions(adb, device, device_cfg["return_actions"], logger)
-                route = random.choice(device_cfg["hunting_routes"])
-                logger.info("random hunting route selected: %s", route.get("name", ""))
-                execute_actions(adb, device, route["actions"], logger)
+                recover_and_resume(adb, device, device_cfg, logger)
             cooldown_until = now + float(global_cfg["detection"]["cooldown_seconds"])
             history.clear()
 

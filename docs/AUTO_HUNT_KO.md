@@ -52,6 +52,7 @@ powershell -ExecutionPolicy Bypass -File tools\auto-hunt-stop.ps1
 합니다.
 
 - `return_actions`: 귀환 주문서가 배치된 단축 슬롯
+- `town_actions`: 귀환 후 창고 모두 맡기기, 잡화상 자동 주문 및 모두 구매
 - `hunting_routes`: 기억 장소 열기, 목적지 선택, 자동사냥 버튼
 
 전체 실행을 일시 정지하려면 `dry_run`을 `true`로 바꿉니다. 캐릭터별 실제

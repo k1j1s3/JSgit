@@ -3,6 +3,7 @@ import sys
 import unittest
 from collections import deque
 from pathlib import Path
+from unittest.mock import Mock, patch
 
 from PIL import Image, ImageDraw
 
@@ -15,6 +16,24 @@ SPEC.loader.exec_module(BOT)
 
 
 class AutoHuntDetectionTest(unittest.TestCase):
+    def test_recovery_runs_town_actions_before_hunting_route(self):
+        cfg = {
+            "return_actions": [{"type": "tap", "point": [1, 1]}],
+            "town_actions": [{"type": "tap", "point": [2, 2]}],
+            "hunting_routes": [
+                {"name": "route", "actions": [{"type": "tap", "point": [3, 3]}]}
+            ],
+        }
+        logger = Mock()
+        with patch.object(BOT, "execute_actions") as execute:
+            route = BOT.recover_and_resume("adb", "device", cfg, logger)
+
+        self.assertEqual(route["name"], "route")
+        self.assertEqual(
+            [call.args[2] for call in execute.call_args_list],
+            [cfg["return_actions"], cfg["town_actions"], cfg["hunting_routes"][0]["actions"]],
+        )
+
     def test_auto_active_requires_orange_ring(self):
         inactive = Image.new("RGB", (80, 90), (40, 40, 40))
         active = inactive.copy()

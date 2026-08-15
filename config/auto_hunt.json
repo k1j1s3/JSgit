@@ -27,6 +27,28 @@
         {"type": "tap", "point": [1232, 635], "label": "verified return-scroll hotbar slot"},
         {"type": "wait", "seconds": 5.0, "label": "wait for town load"}
       ],
+      "town_actions": [
+        {"type": "tap", "point": [1033, 240], "label": "open town NPC quick-move list"},
+        {"type": "wait", "seconds": 0.6},
+        {"type": "tap", "point": [190, 232], "label": "move to first integrated warehouse keeper"},
+        {"type": "wait", "seconds": 3.0, "label": "wait for warehouse UI"},
+        {"type": "tap", "point": [1150, 648], "label": "deposit all eligible inventory items"},
+        {"type": "wait", "seconds": 1.0},
+        {"type": "tap", "point": [1235, 43], "label": "close warehouse UI"},
+        {"type": "wait", "seconds": 0.8},
+        {"type": "tap", "point": [1033, 240], "label": "open town NPC quick-move list"},
+        {"type": "wait", "seconds": 0.6},
+        {"type": "tap", "point": [190, 520], "label": "move to general merchant Raon"},
+        {"type": "wait", "seconds": 3.0, "label": "wait for general shop UI"},
+        {"type": "tap", "point": [990, 648], "label": "load configured automatic order set"},
+        {"type": "wait", "seconds": 0.8},
+        {"type": "tap", "point": [1150, 648], "label": "buy all automatic-order items"},
+        {"type": "wait", "seconds": 0.8},
+        {"type": "tap", "point": [750, 590], "label": "confirm automatic purchase"},
+        {"type": "wait", "seconds": 1.5, "label": "wait for purchase completion"},
+        {"type": "tap", "point": [1235, 43], "label": "close shop UI"},
+        {"type": "wait", "seconds": 0.8}
+      ],
       "hunting_routes": [
         {
           "name": "03-dragon-valley-dungeon-central-entrance",

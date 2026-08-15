@@ -1,4 +1,5 @@
 import importlib.util
+import json
 import sys
 import unittest
 from collections import deque
@@ -17,6 +18,16 @@ SPEC.loader.exec_module(BOT)
 
 
 class AutoHuntDetectionTest(unittest.TestCase):
+    def test_hunting_routes_open_map_from_minimap_without_opening_skill_menu(self):
+        config_path = Path(__file__).parents[1] / "config" / "auto_hunt.json"
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+        routes = config["devices"][0]["hunting_routes"]
+        for route in routes:
+            first = route["actions"][0]
+            self.assertEqual("tap", first["type"])
+            self.assertEqual([1155, 205], first["point"])
+            self.assertIn("directly", first["label"])
+
     def test_recovery_runs_town_actions_before_hunting_route(self):
         cfg = {
             "return_actions": [{"type": "tap", "point": [1, 1]}],

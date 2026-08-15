@@ -4,10 +4,11 @@
   "evidence_directory": "data/bot-evidence",
   "dry_run": false,
   "detection": {
-    "minimum_hp_drop_ratio": 0.08,
+    "minimum_hp_drop_ratio": 0.025,
     "hp_drop_window_seconds": 2.5,
     "minimum_cyan_pixels": 900,
     "minimum_hostile_magenta_pixels": 2500,
+    "minimum_pvp_red_pixels": 500,
     "safe_zone_cyan_pixels": 150,
     "cooldown_seconds": 45
   },
@@ -19,6 +20,7 @@
       "regions": {
         "hp_bar": [88, 41, 319, 58],
         "world_player_names": [350, 145, 1070, 500],
+        "pvp_indicator": [1030, 450, 1270, 600],
         "zone_label": [1070, 285, 1265, 345]
       },
       "return_actions": [
@@ -48,6 +50,7 @@
       "regions": {
         "hp_bar": [88, 41, 319, 58],
         "world_player_names": [350, 145, 1070, 500],
+        "pvp_indicator": [1030, 450, 1270, 600],
         "zone_label": [1070, 285, 1265, 345]
       },
       "return_actions": [

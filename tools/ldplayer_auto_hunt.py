@@ -34,6 +34,7 @@ class FrameState:
     hp_ratio: float
     cyan_pixels: int
     hostile_magenta_pixels: int
+    pvp_red_pixels: int
     safe_zone_pixels: int
 
 
@@ -104,6 +105,14 @@ def count_hostile_magenta(image: Image.Image, rect: list[int]) -> int:
     return count
 
 
+def count_pvp_red(image: Image.Image, rect: list[int]) -> int:
+    count = 0
+    for r, g, b in crop_pixels(image, rect):
+        if r >= 150 and g <= 95 and b <= 95 and r >= g * 1.8 and r >= b * 1.8:
+            count += 1
+    return count
+
+
 def count_safe_zone_color(image: Image.Image, rect: list[int]) -> int:
     # The Safety Zone label is cyan/blue in the verified 1280x720 UI.
     return count_cyan(image, rect)
@@ -146,17 +155,22 @@ def detect_threat(history: deque[FrameState], cfg: dict) -> tuple[bool, str]:
     hp_drop = highest - now.hp_ratio
     cyan = now.cyan_pixels
     hostile = now.hostile_magenta_pixels
+    pvp_red = now.pvp_red_pixels
     enough_drop = hp_drop >= float(cfg["detection"]["minimum_hp_drop_ratio"])
     player_nearby = cyan >= int(cfg["detection"]["minimum_cyan_pixels"])
     hostile_visible = hostile >= int(
         cfg["detection"]["minimum_hostile_magenta_pixels"]
     )
+    pvp_visible = pvp_red >= int(cfg["detection"]["minimum_pvp_red_pixels"])
     not_safe = now.safe_zone_pixels < int(cfg["detection"]["safe_zone_cyan_pixels"])
     reason = (
         f"hp={now.hp_ratio:.3f} drop={hp_drop:.3f} "
-        f"cyan={cyan} hostile={hostile} safe={now.safe_zone_pixels}"
+        f"cyan={cyan} hostile={hostile} pvp_red={pvp_red} "
+        f"safe={now.safe_zone_pixels}"
     )
-    return enough_drop and player_nearby and hostile_visible and not_safe, reason
+    hp_signal = enough_drop and player_nearby and hostile_visible
+    pvp_ui_signal = pvp_visible and hostile_visible
+    return (hp_signal or pvp_ui_signal) and not_safe, reason
 
 
 def device_loop(global_cfg: dict, device_cfg: dict, once: bool = False):
@@ -177,6 +191,9 @@ def device_loop(global_cfg: dict, device_cfg: dict, once: bool = False):
             cyan_pixels=count_cyan(image, device_cfg["regions"]["world_player_names"]),
             hostile_magenta_pixels=count_hostile_magenta(
                 image, device_cfg["regions"]["world_player_names"]
+            ),
+            pvp_red_pixels=count_pvp_red(
+                image, device_cfg["regions"]["pvp_indicator"]
             ),
             safe_zone_pixels=count_safe_zone_color(
                 image, device_cfg["regions"]["zone_label"]
@@ -216,7 +233,7 @@ def validate(config: dict):
     if not config.get("devices"):
         raise ValueError("at least one device must be configured")
     for device in config["devices"]:
-        for name in ("hp_bar", "world_player_names", "zone_label"):
+        for name in ("hp_bar", "world_player_names", "pvp_indicator", "zone_label"):
             rect = device["regions"][name]
             if len(rect) != 4 or rect[2] <= rect[0] or rect[3] <= rect[1]:
                 raise ValueError(f"invalid {name} region for {device['device']}: {rect}")
@@ -259,7 +276,7 @@ def main():
             print(
                 f"{device['device']} hp={state.hp_ratio:.3f} "
                 f"cyan={state.cyan_pixels} hostile={state.hostile_magenta_pixels} "
-                f"safe={state.safe_zone_pixels}"
+                f"pvp_red={state.pvp_red_pixels} safe={state.safe_zone_pixels}"
             )
 
 

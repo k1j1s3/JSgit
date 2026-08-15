@@ -27,17 +27,18 @@ class AutoHuntDetectionTest(unittest.TestCase):
                 "minimum_hp_drop_ratio": 0.08,
                 "minimum_cyan_pixels": 35,
                 "minimum_hostile_magenta_pixels": 500,
+                "minimum_pvp_red_pixels": 500,
                 "safe_zone_cyan_pixels": 150,
             }
         }
         history = deque(
             [
-                BOT.FrameState(1.0, 1.0, 60, 600, 0),
-                BOT.FrameState(2.0, 0.90, 60, 600, 0),
+                BOT.FrameState(1.0, 1.0, 60, 600, 0, 0),
+                BOT.FrameState(2.0, 0.90, 60, 600, 0, 0),
             ]
         )
         self.assertTrue(BOT.detect_threat(history, cfg)[0])
-        history[-1] = BOT.FrameState(2.0, 0.90, 5, 600, 0)
+        history[-1] = BOT.FrameState(2.0, 0.90, 5, 600, 0, 0)
         self.assertFalse(BOT.detect_threat(history, cfg)[0])
 
     def test_safe_zone_suppresses_trigger(self):
@@ -47,16 +48,36 @@ class AutoHuntDetectionTest(unittest.TestCase):
                 "minimum_hp_drop_ratio": 0.08,
                 "minimum_cyan_pixels": 35,
                 "minimum_hostile_magenta_pixels": 500,
+                "minimum_pvp_red_pixels": 500,
                 "safe_zone_cyan_pixels": 150,
             }
         }
         history = deque(
             [
-                BOT.FrameState(1.0, 1.0, 60, 600, 0),
-                BOT.FrameState(2.0, 0.80, 60, 600, 200),
+                BOT.FrameState(1.0, 1.0, 60, 600, 0, 0),
+                BOT.FrameState(2.0, 0.80, 60, 600, 0, 200),
             ]
         )
         self.assertFalse(BOT.detect_threat(history, cfg)[0])
+
+    def test_pvp_indicator_triggers_despite_small_hp_drop(self):
+        cfg = {
+            "detection": {
+                "hp_drop_window_seconds": 2.5,
+                "minimum_hp_drop_ratio": 0.025,
+                "minimum_cyan_pixels": 900,
+                "minimum_hostile_magenta_pixels": 500,
+                "minimum_pvp_red_pixels": 500,
+                "safe_zone_cyan_pixels": 150,
+            }
+        }
+        history = deque(
+            [
+                BOT.FrameState(1.0, 1.0, 1000, 600, 0, 0),
+                BOT.FrameState(2.0, 0.995, 1000, 600, 800, 0),
+            ]
+        )
+        self.assertTrue(BOT.detect_threat(history, cfg)[0])
 
 
 if __name__ == "__main__":

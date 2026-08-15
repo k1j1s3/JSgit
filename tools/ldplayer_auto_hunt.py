@@ -195,7 +195,7 @@ def detect_threat(history: deque[FrameState], cfg: dict) -> tuple[bool, str]:
     now = history[-1]
     not_safe = now.safe_zone_pixels < int(cfg["detection"]["safe_zone_cyan_pixels"])
     emergency_hp = 0.05 < now.hp_ratio <= float(
-        cfg["detection"].get("emergency_hp_ratio", 0.55)
+        cfg["detection"].get("emergency_hp_ratio", 0.20)
     )
     if emergency_hp and not_safe:
         return True, f"emergency-low-hp hp={now.hp_ratio:.3f} safe={now.safe_zone_pixels}"

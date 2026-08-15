@@ -80,11 +80,21 @@ def start_quest(config: dict, adb: str, task: str) -> None:
     adb_tap(adb, device, quest["teleport_confirm_point"]); time.sleep(12)
     adb_tap(adb, device, [998, 548])
 
+def donate_adena(config: dict, adb: str) -> None:
+    """Perform the five verified 100,000-Adena general clan donations."""
+    donation = config["donation"]; device = config["device"]
+    adb_tap(adb, device, donation["menu_point"]); time.sleep(.6)
+    adb_tap(adb, device, donation["clan_point"]); time.sleep(1.5)
+    adb_tap(adb, device, donation["donation_page_point"]); time.sleep(.8)
+    for _ in range(int(donation["count"])):
+        adb_tap(adb, device, donation["adena_button_point"])
+        time.sleep(float(donation["tap_delay_seconds"]))
+
 def switch_character(config: dict, adb: str, target_name: str) -> None:
     target = character(config, target_name); flow = config["switch"]; device = config["device"]
     sequence = [(flow["return_point"], flow["town_wait_seconds"]), (flow["menu_point"], .8),
                 (flow["restart_point"], .8), (flow["character_select_confirm_point"], flow["restart_wait_seconds"]),
-                (target["row_point"], .5), (flow["enter_point"], flow["login_wait_seconds"])]
+                (target["row_point"], flow["selection_wait_seconds"]), (flow["enter_point"], flow["login_wait_seconds"])]
     for point, delay in sequence: adb_tap(adb, device, point); time.sleep(float(delay))
 
 def describe(config: dict, state: RotationState) -> str:
@@ -96,10 +106,12 @@ def describe(config: dict, state: RotationState) -> str:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__); parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
-    parser.add_argument("--show-plan", action="store_true"); parser.add_argument("--switch-to"); parser.add_argument("--adb", default=r"C:\LDPlayer\LDPlayer9\adb.exe")
+    parser.add_argument("--show-plan", action="store_true"); parser.add_argument("--switch-to"); parser.add_argument("--donate-adena", action="store_true"); parser.add_argument("--adb", default=r"C:\LDPlayer\LDPlayer9\adb.exe")
     args = parser.parse_args(); config = json.loads(args.config.read_text(encoding="utf-8")); state = load_state(config)
     if args.switch_to:
         switch_character(config, args.adb, args.switch_to); state.active_character = args.switch_to; save_state(config, state)
+    if args.donate_adena:
+        donate_adena(config, args.adb); state.complete(state.active_character, "clan_adena_donation_5"); save_state(config, state)
     print(describe(config, state))
 
 if __name__ == "__main__": main()

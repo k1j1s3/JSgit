@@ -3,20 +3,26 @@
   "device": "emulator-5554",
   "state_file": "data/auto-hunt/daily-quest-rotation.json",
   "characters": [
-    {"name": "마검1", "row_point": [640, 120], "role": "main"},
-    {"name": "광전1", "row_point": [640, 225], "role": "alt"},
-    {"name": "암기2", "row_point": [640, 335], "role": "alt"},
-    {"name": "쫄법1", "row_point": [640, 445], "role": "alt"}
+    {"name": "마검1", "row_point": [250, 120], "role": "main"},
+    {"name": "광전1", "row_point": [250, 225], "role": "alt"},
+    {"name": "암기2", "row_point": [250, 335], "role": "alt"},
+    {"name": "쫄법1", "row_point": [250, 420], "role": "alt"}
   ],
   "task_policy": {
-    "main": ["daily_claw", "daily_kill_1000", "daily_craft_high_cloth", "clan_easy", "clan_normal", "clan_hard"],
-    "alt": ["daily_claw", "daily_kill_1000", "daily_craft_high_cloth", "clan_easy", "clan_hard"]
+    "main": ["clan_adena_donation_5", "daily_claw", "daily_kill_1000", "daily_craft_high_cloth", "clan_easy", "clan_normal", "clan_hard"],
+    "alt": ["clan_adena_donation_5", "daily_claw", "daily_kill_1000", "daily_craft_high_cloth", "clan_easy", "clan_hard"]
+  },
+  "donation": {
+    "menu_point": [1235, 43], "clan_point": [933, 255],
+    "donation_page_point": [765, 443], "adena_button_point": [307, 566],
+    "count": 5, "tap_delay_seconds": 0.8,
+    "remaining_count_region": [1020, 620, 1225, 675]
   },
   "switch": {
     "return_point": [1232, 635], "town_wait_seconds": 5.0,
     "menu_point": [1235, 43], "restart_point": [1233, 480],
     "character_select_confirm_point": [750, 590], "enter_point": [1085, 660],
-    "restart_wait_seconds": 4.0, "login_wait_seconds": 12.0
+    "restart_wait_seconds": 4.0, "selection_wait_seconds": 1.2, "login_wait_seconds": 18.0
   },
   "quest": {
     "icon_point": [1155, 43], "mission_tab_point": [475, 105],

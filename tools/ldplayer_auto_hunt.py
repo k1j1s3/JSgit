@@ -13,6 +13,7 @@ import argparse
 import io
 import json
 import logging
+import random
 import subprocess
 import sys
 import time
@@ -122,6 +123,21 @@ def tap(adb: str, device: str, x: int, y: int):
     run_adb(adb, device, "shell", "input", "tap", str(x), str(y))
 
 
+def swipe(adb: str, device: str, start: list[int], end: list[int], duration_ms: int):
+    run_adb(
+        adb,
+        device,
+        "shell",
+        "input",
+        "swipe",
+        str(start[0]),
+        str(start[1]),
+        str(end[0]),
+        str(end[1]),
+        str(duration_ms),
+    )
+
+
 def execute_actions(adb: str, device: str, actions: list[dict], logger):
     for action in actions:
         kind = action.get("type")
@@ -129,6 +145,18 @@ def execute_actions(adb: str, device: str, actions: list[dict], logger):
             x, y = action["point"]
             logger.info("tap (%s, %s): %s", x, y, action.get("label", ""))
             tap(adb, device, x, y)
+        elif kind == "swipe":
+            start = action["start"]
+            end = action["end"]
+            duration_ms = int(action.get("duration_ms", 450))
+            logger.info(
+                "swipe %s -> %s (%sms): %s",
+                start,
+                end,
+                duration_ms,
+                action.get("label", ""),
+            )
+            swipe(adb, device, start, end, duration_ms)
         elif kind == "wait":
             seconds = float(action["seconds"])
             logger.info("wait %.1fs: %s", seconds, action.get("label", ""))
@@ -214,11 +242,9 @@ def device_loop(global_cfg: dict, device_cfg: dict, once: bool = False):
                 )
             else:
                 execute_actions(adb, device, device_cfg["return_actions"], logger)
-                route = device_cfg["hunting_routes"][device_cfg.get("next_route", 0)]
+                route = random.choice(device_cfg["hunting_routes"])
+                logger.info("random hunting route selected: %s", route.get("name", ""))
                 execute_actions(adb, device, route["actions"], logger)
-                device_cfg["next_route"] = (
-                    int(device_cfg.get("next_route", 0)) + 1
-                ) % len(device_cfg["hunting_routes"])
             cooldown_until = now + float(global_cfg["detection"]["cooldown_seconds"])
             history.clear()
 

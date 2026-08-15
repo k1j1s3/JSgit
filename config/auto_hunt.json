@@ -9,8 +9,9 @@
     "minimum_cyan_pixels": 900,
     "minimum_hostile_magenta_pixels": 2500,
     "minimum_pvp_red_pixels": 500,
+    "emergency_hp_ratio": 0.70,
     "safe_zone_cyan_pixels": 150,
-    "cooldown_seconds": 45
+    "cooldown_seconds": 2
   },
   "devices": [
     {

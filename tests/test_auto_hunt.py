@@ -28,6 +28,7 @@ class AutoHuntDetectionTest(unittest.TestCase):
                 "minimum_cyan_pixels": 35,
                 "minimum_hostile_magenta_pixels": 500,
                 "minimum_pvp_red_pixels": 500,
+                "emergency_hp_ratio": 0.70,
                 "safe_zone_cyan_pixels": 150,
             }
         }
@@ -49,6 +50,7 @@ class AutoHuntDetectionTest(unittest.TestCase):
                 "minimum_cyan_pixels": 35,
                 "minimum_hostile_magenta_pixels": 500,
                 "minimum_pvp_red_pixels": 500,
+                "emergency_hp_ratio": 0.70,
                 "safe_zone_cyan_pixels": 150,
             }
         }
@@ -68,6 +70,7 @@ class AutoHuntDetectionTest(unittest.TestCase):
                 "minimum_cyan_pixels": 900,
                 "minimum_hostile_magenta_pixels": 500,
                 "minimum_pvp_red_pixels": 500,
+                "emergency_hp_ratio": 0.70,
                 "safe_zone_cyan_pixels": 150,
             }
         }
@@ -75,6 +78,26 @@ class AutoHuntDetectionTest(unittest.TestCase):
             [
                 BOT.FrameState(1.0, 1.0, 1000, 600, 0, 0),
                 BOT.FrameState(2.0, 0.995, 1000, 600, 800, 0),
+            ]
+        )
+        self.assertTrue(BOT.detect_threat(history, cfg)[0])
+
+    def test_emergency_low_hp_triggers_without_color_signal(self):
+        cfg = {
+            "detection": {
+                "hp_drop_window_seconds": 2.5,
+                "minimum_hp_drop_ratio": 0.025,
+                "minimum_cyan_pixels": 900,
+                "minimum_hostile_magenta_pixels": 2500,
+                "minimum_pvp_red_pixels": 500,
+                "emergency_hp_ratio": 0.70,
+                "safe_zone_cyan_pixels": 150,
+            }
+        }
+        history = deque(
+            [
+                BOT.FrameState(1.0, 0.80, 0, 0, 0, 0),
+                BOT.FrameState(2.0, 0.65, 0, 0, 0, 0),
             ]
         )
         self.assertTrue(BOT.detect_threat(history, cfg)[0])

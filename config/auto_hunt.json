@@ -45,7 +45,7 @@
             {"type": "wait", "seconds": 0.7},
             {"type": "tap", "point": [1060, 655], "label": "move to selected hunting field"},
             {"type": "wait", "seconds": 12.0, "label": "wait for hunting-field load"},
-            {"type": "tap", "point": [998, 548], "label": "enable AUTO combat"}
+            {"type": "ensure_auto", "point": [998, 548], "label": "keep AUTO enabled without toggling it off"}
           ]
         },
         {
@@ -69,7 +69,7 @@
             {"type": "wait", "seconds": 0.7},
             {"type": "tap", "point": [1060, 655], "label": "move to selected hunting field"},
             {"type": "wait", "seconds": 12.0, "label": "wait for hunting-field load"},
-            {"type": "tap", "point": [998, 548], "label": "enable AUTO combat"}
+            {"type": "ensure_auto", "point": [998, 548], "label": "keep AUTO enabled without toggling it off"}
           ]
         }
       ]
@@ -97,7 +97,7 @@
             {"type": "wait", "seconds": 1.5},
             {"type": "tap", "point": [190, 160], "label": "first remembered hunting place (calibrate)"},
             {"type": "wait", "seconds": 4.0},
-            {"type": "tap", "point": [1000, 548], "label": "AUTO button"}
+            {"type": "ensure_auto", "point": [1000, 548], "label": "keep AUTO enabled without toggling it off"}
           ]
         }
       ]

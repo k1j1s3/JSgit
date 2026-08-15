@@ -15,6 +15,14 @@ SPEC.loader.exec_module(BOT)
 
 
 class AutoHuntDetectionTest(unittest.TestCase):
+    def test_auto_active_requires_orange_ring(self):
+        inactive = Image.new("RGB", (80, 90), (40, 40, 40))
+        active = inactive.copy()
+        ImageDraw.Draw(active).rectangle((0, 0, 29, 29), fill=(220, 110, 20))
+
+        self.assertFalse(BOT.is_auto_active(inactive, [0, 0, 80, 90], 500))
+        self.assertTrue(BOT.is_auto_active(active, [0, 0, 80, 90], 500))
+
     def test_hp_measurement(self):
         image = Image.new("RGB", (100, 10), "black")
         ImageDraw.Draw(image).rectangle((0, 0, 59, 9), fill=(220, 20, 20))

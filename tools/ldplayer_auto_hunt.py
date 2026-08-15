@@ -138,6 +138,15 @@ def swipe(adb: str, device: str, start: list[int], end: list[int], duration_ms: 
     )
 
 
+def is_auto_active(image: Image.Image, rect: list[int], minimum_orange_pixels: int) -> bool:
+    """Detect the orange AUTO ring shown while automatic combat is active."""
+    orange_pixels = 0
+    for r, g, b in crop_pixels(image, rect):
+        if r >= 150 and 60 <= g <= 180 and b < 80 and r >= g * 1.25:
+            orange_pixels += 1
+    return orange_pixels >= minimum_orange_pixels
+
+
 def execute_actions(adb: str, device: str, actions: list[dict], logger):
     for action in actions:
         kind = action.get("type")
@@ -157,6 +166,15 @@ def execute_actions(adb: str, device: str, actions: list[dict], logger):
                 action.get("label", ""),
             )
             swipe(adb, device, start, end, duration_ms)
+        elif kind == "ensure_auto":
+            rect = action.get("region", [960, 500, 1040, 590])
+            minimum = int(action.get("minimum_orange_pixels", 500))
+            active = is_auto_active(screenshot(adb, device), rect, minimum)
+            logger.info("AUTO state active=%s: %s", active, action.get("label", ""))
+            if not active:
+                x, y = action["point"]
+                logger.info("tap (%s, %s): enable AUTO combat", x, y)
+                tap(adb, device, x, y)
         elif kind == "wait":
             seconds = float(action["seconds"])
             logger.info("wait %.1fs: %s", seconds, action.get("label", ""))

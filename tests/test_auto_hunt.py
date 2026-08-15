@@ -125,6 +125,36 @@ class AutoHuntDetectionTest(unittest.TestCase):
         )
         self.assertFalse(BOT.detect_threat(history, cfg)[0])
 
+    def test_low_hp_from_monsters_triggers_without_player_colors(self):
+        cfg = {
+            "detection": {
+                "hp_drop_window_seconds": 2.5,
+                "minimum_hp_drop_ratio": 0.025,
+                "minimum_cyan_pixels": 900,
+                "minimum_hostile_magenta_pixels": 2500,
+                "minimum_pvp_red_pixels": 500,
+                "safe_zone_cyan_pixels": 150,
+                "emergency_hp_ratio": 0.55,
+            }
+        }
+        history = deque([BOT.FrameState(1.0, 0.50, 0, 0, 0, 0)])
+        self.assertTrue(BOT.detect_threat(history, cfg)[0])
+
+    def test_low_hp_does_not_trigger_in_safe_zone(self):
+        cfg = {
+            "detection": {
+                "hp_drop_window_seconds": 2.5,
+                "minimum_hp_drop_ratio": 0.025,
+                "minimum_cyan_pixels": 900,
+                "minimum_hostile_magenta_pixels": 2500,
+                "minimum_pvp_red_pixels": 500,
+                "safe_zone_cyan_pixels": 150,
+                "emergency_hp_ratio": 0.55,
+            }
+        }
+        history = deque([BOT.FrameState(1.0, 0.50, 0, 0, 0, 200)])
+        self.assertFalse(BOT.detect_threat(history, cfg)[0])
+
 
 
 if __name__ == "__main__":

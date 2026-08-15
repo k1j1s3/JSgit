@@ -192,9 +192,15 @@ def save_evidence(image: Image.Image, output: Path, device: str, label: str):
 
 
 def detect_threat(history: deque[FrameState], cfg: dict) -> tuple[bool, str]:
+    now = history[-1]
+    not_safe = now.safe_zone_pixels < int(cfg["detection"]["safe_zone_cyan_pixels"])
+    emergency_hp = 0.05 < now.hp_ratio <= float(
+        cfg["detection"].get("emergency_hp_ratio", 0.55)
+    )
+    if emergency_hp and not_safe:
+        return True, f"emergency-low-hp hp={now.hp_ratio:.3f} safe={now.safe_zone_pixels}"
     if len(history) < 2:
         return False, "warming-up"
-    now = history[-1]
     window = float(cfg["detection"]["hp_drop_window_seconds"])
     prior = [sample for sample in history if now.timestamp - sample.timestamp <= window]
     highest = max(sample.hp_ratio for sample in prior)
@@ -208,7 +214,6 @@ def detect_threat(history: deque[FrameState], cfg: dict) -> tuple[bool, str]:
         cfg["detection"]["minimum_hostile_magenta_pixels"]
     )
     pvp_visible = pvp_red >= int(cfg["detection"]["minimum_pvp_red_pixels"])
-    not_safe = now.safe_zone_pixels < int(cfg["detection"]["safe_zone_cyan_pixels"])
     reason = (
         f"hp={now.hp_ratio:.3f} drop={hp_drop:.3f} "
         f"cyan={cyan} hostile={hostile} pvp_red={pvp_red} "

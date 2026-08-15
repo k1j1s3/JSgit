@@ -53,6 +53,8 @@
         {
           "name": "03-dragon-valley-dungeon-central-entrance",
           "actions": [
+            {"type": "tap", "point": [1235, 43], "label": "open main menu from field HUD"},
+            {"type": "wait", "seconds": 0.8},
             {"type": "tap", "point": [1155, 205], "label": "open verified world map"},
             {"type": "wait", "seconds": 1.2},
             {"type": "tap", "point": [435, 105], "label": "select Aden continent tab"},
@@ -73,6 +75,8 @@
         {
           "name": "16-wind-dragon-nest",
           "actions": [
+            {"type": "tap", "point": [1235, 43], "label": "open main menu from field HUD"},
+            {"type": "wait", "seconds": 0.8},
             {"type": "tap", "point": [1155, 205], "label": "open verified world map"},
             {"type": "wait", "seconds": 1.2},
             {"type": "tap", "point": [435, 105], "label": "select Aden continent tab"},

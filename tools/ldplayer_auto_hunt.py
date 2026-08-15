@@ -268,7 +268,8 @@ def save_evidence(image: Image.Image, output: Path, device: str, label: str):
 
 
 def detect_threat(
-    history: deque[FrameState], cfg: dict, emergency_in_safe_zone: bool = False
+    history: deque[FrameState], cfg: dict, emergency_in_safe_zone: bool = False,
+    emergency_only: bool = False,
 ) -> tuple[bool, str]:
     now = history[-1]
     not_safe = now.safe_zone_pixels < int(cfg["detection"]["safe_zone_cyan_pixels"])
@@ -277,6 +278,8 @@ def detect_threat(
     )
     if emergency_hp and (not_safe or emergency_in_safe_zone):
         return True, f"emergency-low-hp hp={now.hp_ratio:.3f} safe={now.safe_zone_pixels}"
+    if emergency_only:
+        return False, f"quest-mode hp={now.hp_ratio:.3f} safe={now.safe_zone_pixels}"
     if len(history) < 2:
         return False, "warming-up"
     window = float(cfg["detection"]["hp_drop_window_seconds"])
@@ -495,10 +498,13 @@ def device_loop(global_cfg: dict, device_cfg: dict, once: bool = False):
             ),
         )
         history.append(state)
+        marker = global_cfg.get("quest_mode_marker")
+        quest_mode = bool(marker) and (ROOT / marker).exists()
         threat, reason = detect_threat(
             history,
             global_cfg,
             emergency_in_safe_zone=world_boss.state not in ("idle",),
+            emergency_only=quest_mode,
         )
         logger.info("state %s threat=%s", reason, threat)
 

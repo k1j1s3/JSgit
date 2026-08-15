@@ -2,6 +2,7 @@
   "adb_path": "C:\\LDPlayer\\LDPlayer9\\adb.exe",
   "poll_interval_seconds": 0.7,
   "evidence_directory": "data/bot-evidence",
+  "quest_mode_marker": "data/auto-hunt/quest-mode.json",
   "dry_run": false,
   "detection": {
     "minimum_hp_drop_ratio": 0.025,

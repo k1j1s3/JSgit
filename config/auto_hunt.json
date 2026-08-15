@@ -2,11 +2,12 @@
   "adb_path": "C:\\LDPlayer\\LDPlayer9\\adb.exe",
   "poll_interval_seconds": 0.7,
   "evidence_directory": "data/bot-evidence",
-  "dry_run": true,
+  "dry_run": false,
   "detection": {
     "minimum_hp_drop_ratio": 0.08,
     "hp_drop_window_seconds": 2.5,
     "minimum_cyan_pixels": 900,
+    "minimum_hostile_magenta_pixels": 2500,
     "safe_zone_cyan_pixels": 150,
     "cooldown_seconds": 45
   },
@@ -14,35 +15,28 @@
     {
       "name": "player-1",
       "device": "emulator-5554",
+      "actions_enabled": true,
       "regions": {
         "hp_bar": [88, 41, 319, 58],
         "world_player_names": [350, 145, 1070, 500],
         "zone_label": [1070, 285, 1265, 345]
       },
       "return_actions": [
-        {"type": "tap", "point": [1165, 635], "label": "return-scroll hotbar slot (calibrate before enabling)"},
-        {"type": "wait", "seconds": 4.0, "label": "wait for town load"}
+        {"type": "tap", "point": [1232, 635], "label": "verified return-scroll hotbar slot"},
+        {"type": "wait", "seconds": 5.0, "label": "wait for town load"}
       ],
       "next_route": 0,
       "hunting_routes": [
         {
-          "name": "route-a",
+          "name": "mystery-forest",
           "actions": [
-            {"type": "tap", "point": [1232, 301], "label": "open remembered places (calibrate)"},
-            {"type": "wait", "seconds": 1.5},
-            {"type": "tap", "point": [190, 160], "label": "first remembered hunting place (calibrate)"},
-            {"type": "wait", "seconds": 4.0},
-            {"type": "tap", "point": [1000, 548], "label": "AUTO button"}
-          ]
-        },
-        {
-          "name": "route-b",
-          "actions": [
-            {"type": "tap", "point": [1232, 301], "label": "open remembered places (calibrate)"},
-            {"type": "wait", "seconds": 1.5},
-            {"type": "tap", "point": [190, 235], "label": "second remembered hunting place (calibrate)"},
-            {"type": "wait", "seconds": 4.0},
-            {"type": "tap", "point": [1000, 548], "label": "AUTO button"}
+            {"type": "tap", "point": [1155, 205], "label": "open verified world map"},
+            {"type": "wait", "seconds": 2.0},
+            {"type": "tap", "point": [130, 535], "label": "select 05. mystery forest"},
+            {"type": "wait", "seconds": 0.7},
+            {"type": "tap", "point": [1060, 655], "label": "move to selected hunting field"},
+            {"type": "wait", "seconds": 7.0},
+            {"type": "tap", "point": [998, 548], "label": "enable AUTO combat"}
           ]
         }
       ]
@@ -50,6 +44,7 @@
     {
       "name": "player-2",
       "device": "emulator-5556",
+      "actions_enabled": false,
       "regions": {
         "hp_bar": [88, 41, 319, 58],
         "world_player_names": [350, 145, 1070, 500],

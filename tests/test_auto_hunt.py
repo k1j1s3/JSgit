@@ -26,17 +26,18 @@ class AutoHuntDetectionTest(unittest.TestCase):
                 "hp_drop_window_seconds": 2.5,
                 "minimum_hp_drop_ratio": 0.08,
                 "minimum_cyan_pixels": 35,
+                "minimum_hostile_magenta_pixels": 500,
                 "safe_zone_cyan_pixels": 150,
             }
         }
         history = deque(
             [
-                BOT.FrameState(1.0, 1.0, 60, 0),
-                BOT.FrameState(2.0, 0.90, 60, 0),
+                BOT.FrameState(1.0, 1.0, 60, 600, 0),
+                BOT.FrameState(2.0, 0.90, 60, 600, 0),
             ]
         )
         self.assertTrue(BOT.detect_threat(history, cfg)[0])
-        history[-1] = BOT.FrameState(2.0, 0.90, 5, 0)
+        history[-1] = BOT.FrameState(2.0, 0.90, 5, 600, 0)
         self.assertFalse(BOT.detect_threat(history, cfg)[0])
 
     def test_safe_zone_suppresses_trigger(self):
@@ -45,13 +46,14 @@ class AutoHuntDetectionTest(unittest.TestCase):
                 "hp_drop_window_seconds": 2.5,
                 "minimum_hp_drop_ratio": 0.08,
                 "minimum_cyan_pixels": 35,
+                "minimum_hostile_magenta_pixels": 500,
                 "safe_zone_cyan_pixels": 150,
             }
         }
         history = deque(
             [
-                BOT.FrameState(1.0, 1.0, 60, 0),
-                BOT.FrameState(2.0, 0.80, 60, 200),
+                BOT.FrameState(1.0, 1.0, 60, 600, 0),
+                BOT.FrameState(2.0, 0.80, 60, 600, 200),
             ]
         )
         self.assertFalse(BOT.detect_threat(history, cfg)[0])

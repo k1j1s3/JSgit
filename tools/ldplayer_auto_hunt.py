@@ -33,6 +33,7 @@ class FrameState:
     timestamp: float
     hp_ratio: float
     cyan_pixels: int
+    hostile_magenta_pixels: int
     safe_zone_pixels: int
 
 
@@ -94,6 +95,15 @@ def count_cyan(image: Image.Image, rect: list[int]) -> int:
     return count
 
 
+def count_hostile_magenta(image: Image.Image, rect: list[int]) -> int:
+    """Count the pink/purple hostile-player name and targeting treatment."""
+    count = 0
+    for r, g, b in crop_pixels(image, rect):
+        if r >= 130 and b >= 130 and g < min(r, b) * 0.82 and abs(r - b) < 100:
+            count += 1
+    return count
+
+
 def count_safe_zone_color(image: Image.Image, rect: list[int]) -> int:
     # The Safety Zone label is cyan/blue in the verified 1280x720 UI.
     return count_cyan(image, rect)
@@ -135,14 +145,18 @@ def detect_threat(history: deque[FrameState], cfg: dict) -> tuple[bool, str]:
     highest = max(sample.hp_ratio for sample in prior)
     hp_drop = highest - now.hp_ratio
     cyan = now.cyan_pixels
+    hostile = now.hostile_magenta_pixels
     enough_drop = hp_drop >= float(cfg["detection"]["minimum_hp_drop_ratio"])
     player_nearby = cyan >= int(cfg["detection"]["minimum_cyan_pixels"])
+    hostile_visible = hostile >= int(
+        cfg["detection"]["minimum_hostile_magenta_pixels"]
+    )
     not_safe = now.safe_zone_pixels < int(cfg["detection"]["safe_zone_cyan_pixels"])
     reason = (
         f"hp={now.hp_ratio:.3f} drop={hp_drop:.3f} "
-        f"cyan={cyan} safe={now.safe_zone_pixels}"
+        f"cyan={cyan} hostile={hostile} safe={now.safe_zone_pixels}"
     )
-    return enough_drop and player_nearby and not_safe, reason
+    return enough_drop and player_nearby and hostile_visible and not_safe, reason
 
 
 def device_loop(global_cfg: dict, device_cfg: dict, once: bool = False):
@@ -161,6 +175,9 @@ def device_loop(global_cfg: dict, device_cfg: dict, once: bool = False):
             timestamp=now,
             hp_ratio=measure_hp(image, device_cfg["regions"]["hp_bar"]),
             cyan_pixels=count_cyan(image, device_cfg["regions"]["world_player_names"]),
+            hostile_magenta_pixels=count_hostile_magenta(
+                image, device_cfg["regions"]["world_player_names"]
+            ),
             safe_zone_pixels=count_safe_zone_color(
                 image, device_cfg["regions"]["zone_label"]
             ),
@@ -172,8 +189,12 @@ def device_loop(global_cfg: dict, device_cfg: dict, once: bool = False):
         if threat and now >= cooldown_until:
             evidence = save_evidence(image, output, device, "threat")
             logger.warning("PvP threat detected: %s evidence=%s", reason, evidence)
-            if global_cfg["dry_run"]:
-                logger.warning("dry_run=true: return/travel actions were not sent")
+            if global_cfg["dry_run"] or not device_cfg.get("actions_enabled", False):
+                logger.warning(
+                    "actions disabled: dry_run=%s device.actions_enabled=%s",
+                    global_cfg["dry_run"],
+                    device_cfg.get("actions_enabled", False),
+                )
             else:
                 execute_actions(adb, device, device_cfg["return_actions"], logger)
                 route = device_cfg["hunting_routes"][device_cfg.get("next_route", 0)]
@@ -237,7 +258,8 @@ def main():
         if args.once:
             print(
                 f"{device['device']} hp={state.hp_ratio:.3f} "
-                f"cyan={state.cyan_pixels} safe={state.safe_zone_pixels}"
+                f"cyan={state.cyan_pixels} hostile={state.hostile_magenta_pixels} "
+                f"safe={state.safe_zone_pixels}"
             )
 
 

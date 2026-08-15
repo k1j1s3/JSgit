@@ -162,9 +162,6 @@ def detect_threat(history: deque[FrameState], cfg: dict) -> tuple[bool, str]:
         cfg["detection"]["minimum_hostile_magenta_pixels"]
     )
     pvp_visible = pvp_red >= int(cfg["detection"]["minimum_pvp_red_pixels"])
-    emergency_low_hp = now.hp_ratio <= float(
-        cfg["detection"]["emergency_hp_ratio"]
-    )
     not_safe = now.safe_zone_pixels < int(cfg["detection"]["safe_zone_cyan_pixels"])
     reason = (
         f"hp={now.hp_ratio:.3f} drop={hp_drop:.3f} "
@@ -173,7 +170,7 @@ def detect_threat(history: deque[FrameState], cfg: dict) -> tuple[bool, str]:
     )
     hp_signal = enough_drop and player_nearby and hostile_visible
     pvp_ui_signal = pvp_visible and hostile_visible
-    return (hp_signal or pvp_ui_signal or emergency_low_hp) and not_safe, reason
+    return (hp_signal or pvp_ui_signal) and not_safe, reason
 
 
 def device_loop(global_cfg: dict, device_cfg: dict, once: bool = False):

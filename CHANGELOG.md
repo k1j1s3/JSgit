@@ -1,5 +1,13 @@
 # Changelog
 
+## World boss automation
+
+- Detect the scheduled red world-boss HUD icon at 14:00, 20:00, 21:00, 22:00, and 23:00.
+- Enter the verified raid, use Immune to Harm and Dragon Pearl, acquire the boss target, and keep combat active.
+- Detect the dense post-kill drop labels, prioritize purple/red/blue loot, and burst the pickup-hand control.
+- Preserve the universal 20% emergency return during the world-boss arena, then deposit and resume hunting.
+- Keep player 2 in observation-only mode until its consumable slots are calibrated.
+
 ## Unreleased
 
 ## L1J PC Migration Bootstrap

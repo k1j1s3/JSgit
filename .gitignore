@@ -19,5 +19,7 @@ data/*.png
 data/*.xml
 data/smoke-test/
 data/bot-captures/
+data/world-boss-captures/
+data/world-boss-analysis/
 data/bot-evidence/
 data/auto-hunt/

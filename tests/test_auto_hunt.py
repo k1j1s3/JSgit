@@ -2,6 +2,7 @@ import importlib.util
 import sys
 import unittest
 from collections import deque
+from datetime import datetime
 from pathlib import Path
 from unittest.mock import Mock, patch
 
@@ -169,6 +170,79 @@ class AutoHuntDetectionTest(unittest.TestCase):
         }
         history = deque([BOT.FrameState(1.0, 0.21, 0, 0, 0, 0)])
         self.assertFalse(BOT.detect_threat(history, cfg)[0])
+
+    def test_world_boss_low_hp_escapes_even_when_arena_says_safe_zone(self):
+        cfg = {
+            "detection": {
+                "hp_drop_window_seconds": 2.5,
+                "minimum_hp_drop_ratio": 0.025,
+                "minimum_cyan_pixels": 900,
+                "minimum_hostile_magenta_pixels": 2500,
+                "minimum_pvp_red_pixels": 500,
+                "safe_zone_cyan_pixels": 150,
+                "emergency_hp_ratio": 0.20,
+            }
+        }
+        history = deque([BOT.FrameState(1.0, 0.20, 0, 0, 0, 200)])
+        self.assertTrue(BOT.detect_threat(history, cfg, emergency_in_safe_zone=True)[0])
+
+    def test_world_boss_schedule_window(self):
+        cfg = {
+            "schedule": ["14:00", "23:00"],
+            "schedule_before_seconds": 90,
+            "schedule_after_seconds": 1200,
+        }
+        self.assertTrue(BOT.world_boss_schedule_active(datetime(2026, 8, 15, 22, 59), cfg))
+        self.assertTrue(BOT.world_boss_schedule_active(datetime(2026, 8, 15, 23, 10), cfg))
+        self.assertFalse(BOT.world_boss_schedule_active(datetime(2026, 8, 15, 18, 0), cfg))
+
+    def test_priority_loot_prefers_purple_then_red_then_blue(self):
+        image = Image.new("RGB", (128, 64), "black")
+        draw = ImageDraw.Draw(image)
+        draw.rectangle((5, 5, 30, 25), fill=(60, 110, 220))
+        draw.rectangle((45, 5, 70, 25), fill=(230, 60, 40))
+        draw.rectangle((85, 5, 110, 25), fill=(180, 70, 210))
+
+        target = BOT.find_priority_loot_target(image, [0, 0, 128, 64])
+
+        self.assertEqual("legendary-purple", target[0])
+        self.assertGreaterEqual(target[1][0], 85)
+
+    def test_world_boss_icon_starts_entry_state(self):
+        image = Image.new("RGB", (100, 100), "black")
+        ImageDraw.Draw(image).rectangle((0, 0, 30, 30), fill=(220, 20, 20))
+        global_cfg = {
+            "dry_run": False,
+            "world_boss": {
+                "enabled": True,
+                "schedule": ["23:00"],
+                "schedule_before_seconds": 90,
+                "schedule_after_seconds": 1200,
+                "icon_region": [0, 0, 40, 40],
+                "minimum_icon_red_pixels": 150,
+            },
+        }
+        device_cfg = {
+            "actions_enabled": True,
+            "world_boss": {"enabled": True, "icon_point": [10, 10]},
+        }
+        runtime = BOT.WorldBossRuntime()
+
+        with patch.object(BOT, "tap") as tapped:
+            state = BOT.world_boss_tick(
+                image,
+                100.0,
+                datetime(2026, 8, 15, 23, 0),
+                "adb",
+                "device",
+                global_cfg,
+                device_cfg,
+                runtime,
+                Mock(),
+            )
+
+        self.assertEqual("menu", state)
+        tapped.assert_called_once_with("adb", "device", 10, 10)
 
 
 

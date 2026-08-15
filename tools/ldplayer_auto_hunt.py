@@ -19,7 +19,7 @@ import sys
 import time
 from collections import deque
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from PIL import Image
@@ -37,6 +37,15 @@ class FrameState:
     hostile_magenta_pixels: int
     pvp_red_pixels: int
     safe_zone_pixels: int
+
+
+@dataclass
+class WorldBossRuntime:
+    state: str = "idle"
+    state_since: float = 0.0
+    last_action: float = 0.0
+    loot_frames: int = 0
+    suppress_until: float = 0.0
 
 
 def run_adb(adb: str, device: str, *args: str, binary: bool = False):
@@ -119,6 +128,52 @@ def count_safe_zone_color(image: Image.Image, rect: list[int]) -> int:
     return count_cyan(image, rect)
 
 
+def count_world_boss_red(image: Image.Image, rect: list[int]) -> int:
+    count = 0
+    for r, g, b in crop_pixels(image, rect):
+        if r >= 150 and r >= g * 1.5 and r >= b * 1.4:
+            count += 1
+    return count
+
+
+def count_loot_text(image: Image.Image, rect: list[int]) -> int:
+    """Count bright, low-saturation pixels from the dense ground-item labels."""
+    count = 0
+    for r, g, b in crop_pixels(image, rect):
+        if min(r, g, b) >= 175 and max(r, g, b) - min(r, g, b) < 55:
+            count += 1
+    return count
+
+
+def find_priority_loot_target(image: Image.Image, rect: list[int]) -> tuple[str, tuple[int, int]] | None:
+    """Find the densest legendary, hero, then rare colored label area."""
+    x1, y1, x2, y2 = rect
+    rules = (
+        ("legendary-purple", lambda r, g, b: r >= 140 and b >= 150 and g <= 115),
+        ("hero-red", lambda r, g, b: r >= 180 and g <= 130 and b <= 125 and r >= g * 1.35),
+        ("rare-blue", lambda r, g, b: b >= 150 and g >= 80 and r <= 125 and b >= r * 1.3),
+    )
+    # Text crosses several small bins. Picking the densest bin is more stable
+    # than averaging all same-colored combat effects and player names.
+    bin_size = 32
+    for label, matches in rules:
+        bins: dict[tuple[int, int], list[int]] = {}
+        for y in range(y1, y2, 2):
+            for x in range(x1, x2, 2):
+                r, g, b = image.getpixel((x, y))
+                if matches(r, g, b):
+                    key = ((x - x1) // bin_size, (y - y1) // bin_size)
+                    bucket = bins.setdefault(key, [0, 0, 0])
+                    bucket[0] += 1
+                    bucket[1] += x
+                    bucket[2] += y
+        if bins:
+            count, sx, sy = max(bins.values(), key=lambda item: item[0])
+            if count >= 5:
+                return label, (sx // count, sy // count)
+    return None
+
+
 def tap(adb: str, device: str, x: int, y: int):
     run_adb(adb, device, "shell", "input", "tap", str(x), str(y))
 
@@ -191,13 +246,15 @@ def save_evidence(image: Image.Image, output: Path, device: str, label: str):
     return path
 
 
-def detect_threat(history: deque[FrameState], cfg: dict) -> tuple[bool, str]:
+def detect_threat(
+    history: deque[FrameState], cfg: dict, emergency_in_safe_zone: bool = False
+) -> tuple[bool, str]:
     now = history[-1]
     not_safe = now.safe_zone_pixels < int(cfg["detection"]["safe_zone_cyan_pixels"])
     emergency_hp = 0.05 < now.hp_ratio <= float(
         cfg["detection"].get("emergency_hp_ratio", 0.20)
     )
-    if emergency_hp and not_safe:
+    if emergency_hp and (not_safe or emergency_in_safe_zone):
         return True, f"emergency-low-hp hp={now.hp_ratio:.3f} safe={now.safe_zone_pixels}"
     if len(history) < 2:
         return False, "warming-up"
@@ -224,6 +281,123 @@ def detect_threat(history: deque[FrameState], cfg: dict) -> tuple[bool, str]:
     return (hp_signal or pvp_ui_signal) and not_safe, reason
 
 
+def world_boss_schedule_active(now: datetime, cfg: dict) -> bool:
+    before = int(cfg.get("schedule_before_seconds", 90))
+    after = int(cfg.get("schedule_after_seconds", 1200))
+    for value in cfg.get("schedule", []):
+        hour, minute = (int(part) for part in value.split(":"))
+        scheduled = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+        if scheduled - timedelta(seconds=before) <= now <= scheduled + timedelta(seconds=after):
+            return True
+    return False
+
+
+def burst_tap(adb: str, device: str, point: list[int], count: int, delay: float):
+    for _ in range(count):
+        tap(adb, device, point[0], point[1])
+        time.sleep(delay)
+
+
+def world_boss_tick(
+    image: Image.Image,
+    monotonic_now: float,
+    wall_now: datetime,
+    adb: str,
+    device: str,
+    global_cfg: dict,
+    device_cfg: dict,
+    runtime: WorldBossRuntime,
+    logger,
+) -> str:
+    cfg = global_cfg.get("world_boss", {})
+    device_boss = device_cfg.get("world_boss", {})
+    if not cfg.get("enabled", False) or not device_boss.get("enabled", False):
+        return runtime.state
+    if monotonic_now < runtime.suppress_until:
+        return runtime.state
+
+    actions_enabled = not global_cfg["dry_run"] and device_cfg.get("actions_enabled", False)
+    elapsed = monotonic_now - runtime.state_since
+    if runtime.state == "idle":
+        red = count_world_boss_red(image, cfg["icon_region"])
+        if world_boss_schedule_active(wall_now, cfg) and red >= int(cfg["minimum_icon_red_pixels"]):
+            logger.warning("world boss icon detected red=%s", red)
+            if actions_enabled:
+                tap(adb, device, *device_boss["icon_point"])
+            runtime.state = "menu"
+            runtime.state_since = monotonic_now
+            runtime.last_action = monotonic_now
+    elif runtime.state == "menu" and elapsed >= float(cfg["menu_wait_seconds"]):
+        logger.info("world boss entry button")
+        if actions_enabled:
+            tap(adb, device, *device_boss["entry_point"])
+        runtime.state = "arena_wait"
+        runtime.state_since = monotonic_now
+        runtime.last_action = monotonic_now
+    elif runtime.state == "arena_wait":
+        if elapsed >= float(cfg["buff_delay_seconds"]) and runtime.last_action == runtime.state_since:
+            logger.info("world boss buffs: Immune to Harm then Dragon Pearl")
+            if actions_enabled:
+                burst_tap(adb, device, device_boss["immune_scroll_point"], 1, 0.25)
+                burst_tap(adb, device, device_boss["dragon_pearl_point"], 1, 0.25)
+            runtime.last_action = monotonic_now
+        if elapsed >= float(cfg["attack_delay_seconds"]):
+            logger.info("world boss target acquisition and AUTO")
+            if actions_enabled:
+                tap(adb, device, *device_boss["boss_target_point"])
+                tap(adb, device, *device_boss["attack_point"])
+                active = is_auto_active(
+                    screenshot(adb, device),
+                    device_boss["auto_region"],
+                    int(device_boss["minimum_auto_orange_pixels"]),
+                )
+                if not active:
+                    tap(adb, device, *device_boss["auto_point"])
+            runtime.state = "combat"
+            runtime.state_since = monotonic_now
+            runtime.last_action = monotonic_now
+    elif runtime.state == "combat":
+        loot_pixels = count_loot_text(image, cfg["loot_region"])
+        if elapsed >= float(cfg["minimum_combat_seconds"]) and loot_pixels >= int(cfg["minimum_loot_text_pixels"]):
+            runtime.loot_frames += 1
+        else:
+            runtime.loot_frames = 0
+        if runtime.loot_frames >= int(cfg.get("loot_confirm_frames", 2)):
+            logger.warning("world boss death/drop detected loot_pixels=%s", loot_pixels)
+            runtime.state = "loot"
+            runtime.state_since = monotonic_now
+            runtime.last_action = 0.0
+        elif monotonic_now - runtime.last_action >= float(cfg["reacquire_seconds"]):
+            if actions_enabled:
+                tap(adb, device, *device_boss["boss_target_point"])
+                tap(adb, device, *device_boss["attack_point"])
+            runtime.last_action = monotonic_now
+    elif runtime.state == "loot":
+        if elapsed <= float(cfg["loot_duration_seconds"]):
+            target = find_priority_loot_target(image, cfg["loot_priority_region"])
+            if target and actions_enabled:
+                label, point = target
+                logger.info("priority loot target %s at %s", label, point)
+                tap(adb, device, *point)
+            if actions_enabled:
+                burst_tap(
+                    adb,
+                    device,
+                    device_boss["pickup_point"],
+                    int(cfg["pickup_burst_count"]),
+                    float(cfg["pickup_burst_delay_seconds"]),
+                )
+        else:
+            logger.info("world boss loot window complete; return to town and resume")
+            if actions_enabled:
+                recover_and_resume(adb, device, device_cfg, logger)
+            runtime.state = "idle"
+            runtime.suppress_until = monotonic_now + float(cfg["completion_cooldown_seconds"])
+            runtime.state_since = monotonic_now
+            runtime.loot_frames = 0
+    return runtime.state
+
+
 def recover_and_resume(adb: str, device: str, device_cfg: dict, logger):
     """Return to town, finish mandatory town chores, then resume hunting."""
     execute_actions(adb, device, device_cfg["return_actions"], logger)
@@ -242,6 +416,7 @@ def device_loop(global_cfg: dict, device_cfg: dict, once: bool = False):
     history: deque[FrameState] = deque(maxlen=30)
     cooldown_until = 0.0
     logger = logging.getLogger(device)
+    world_boss = WorldBossRuntime()
 
     while True:
         image = screenshot(adb, device)
@@ -261,7 +436,11 @@ def device_loop(global_cfg: dict, device_cfg: dict, once: bool = False):
             ),
         )
         history.append(state)
-        threat, reason = detect_threat(history, global_cfg)
+        threat, reason = detect_threat(
+            history,
+            global_cfg,
+            emergency_in_safe_zone=world_boss.state not in ("idle",),
+        )
         logger.info("state %s threat=%s", reason, threat)
 
         if threat and now >= cooldown_until:
@@ -275,8 +454,25 @@ def device_loop(global_cfg: dict, device_cfg: dict, once: bool = False):
                 )
             else:
                 recover_and_resume(adb, device, device_cfg, logger)
+            world_boss.state = "idle"
+            world_boss.suppress_until = now + float(
+                global_cfg.get("world_boss", {}).get("completion_cooldown_seconds", 3600)
+            )
             cooldown_until = now + float(global_cfg["detection"]["cooldown_seconds"])
             history.clear()
+
+        if not threat:
+            world_boss_tick(
+                image,
+                now,
+                datetime.now(),
+                adb,
+                device,
+                global_cfg,
+                device_cfg,
+                world_boss,
+                logger,
+            )
 
         if once:
             return state

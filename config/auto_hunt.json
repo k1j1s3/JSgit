@@ -13,11 +13,45 @@
     "emergency_hp_ratio": 0.20,
     "cooldown_seconds": 2
   },
+  "world_boss": {
+    "enabled": true,
+    "schedule": ["14:00", "20:00", "21:00", "22:00", "23:00"],
+    "schedule_before_seconds": 90,
+    "schedule_after_seconds": 1200,
+    "icon_region": [810, 5, 900, 100],
+    "minimum_icon_red_pixels": 150,
+    "menu_wait_seconds": 1.2,
+    "buff_delay_seconds": 24.0,
+    "attack_delay_seconds": 29.0,
+    "minimum_combat_seconds": 12.0,
+    "reacquire_seconds": 4.0,
+    "loot_region": [80, 120, 1100, 600],
+    "minimum_loot_text_pixels": 20000,
+    "loot_confirm_frames": 2,
+    "loot_priority_region": [80, 140, 1050, 590],
+    "pickup_burst_count": 3,
+    "pickup_burst_delay_seconds": 0.12,
+    "loot_duration_seconds": 18.0,
+    "completion_cooldown_seconds": 3600
+  },
   "devices": [
     {
       "name": "player-1",
       "device": "emulator-5554",
       "actions_enabled": true,
+      "world_boss": {
+        "enabled": true,
+        "icon_point": [857, 50],
+        "entry_point": [640, 650],
+        "immune_scroll_point": [1018, 640],
+        "dragon_pearl_point": [1090, 640],
+        "boss_target_point": [650, 300],
+        "attack_point": [1165, 548],
+        "auto_point": [998, 548],
+        "auto_region": [960, 500, 1040, 590],
+        "minimum_auto_orange_pixels": 500,
+        "pickup_point": [1165, 418]
+      },
       "regions": {
         "hp_bar": [88, 41, 319, 58],
         "world_player_names": [350, 145, 1070, 500],
@@ -105,6 +139,9 @@
       "name": "player-2",
       "device": "emulator-5556",
       "actions_enabled": false,
+      "world_boss": {
+        "enabled": false
+      },
       "regions": {
         "hp_bar": [88, 41, 319, 58],
         "world_player_names": [350, 145, 1070, 500],

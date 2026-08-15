@@ -46,6 +46,8 @@ class WorldBossRuntime:
     last_action: float = 0.0
     loot_frames: int = 0
     suppress_until: float = 0.0
+    icon_frames: int = 0
+    completed_slot: str = ""
 
 
 def run_adb(adb: str, device: str, *args: str, binary: bool = False):
@@ -134,6 +136,25 @@ def count_world_boss_red(image: Image.Image, rect: list[int]) -> int:
         if r >= 150 and r >= g * 1.5 and r >= b * 1.4:
             count += 1
     return count
+
+
+def count_gold(image: Image.Image, rect: list[int]) -> int:
+    count = 0
+    for r, g, b in crop_pixels(image, rect):
+        if r >= 150 and g >= 90 and b < 110 and r >= g * 1.05:
+            count += 1
+    return count
+
+
+def world_boss_icon_visible(image: Image.Image, cfg: dict) -> bool:
+    """Require the four red diamond quadrants and its gold caption/countdown."""
+    quadrants = cfg["icon_quadrants"]
+    minimum_quadrant = int(cfg["minimum_icon_quadrant_red_pixels"])
+    diamond = all(count_world_boss_red(image, rect) >= minimum_quadrant for rect in quadrants)
+    caption = count_gold(image, cfg["icon_caption_region"]) >= int(
+        cfg["minimum_icon_caption_gold_pixels"]
+    )
+    return diamond and caption
 
 
 def count_loot_text(image: Image.Image, rect: list[int]) -> int:
@@ -292,6 +313,35 @@ def world_boss_schedule_active(now: datetime, cfg: dict) -> bool:
     return False
 
 
+def world_boss_schedule_slot(now: datetime, cfg: dict) -> str:
+    before = int(cfg.get("schedule_before_seconds", 90))
+    after = int(cfg.get("schedule_after_seconds", 180))
+    for value in cfg.get("schedule", []):
+        hour, minute = (int(part) for part in value.split(":"))
+        scheduled = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+        if scheduled - timedelta(seconds=before) <= now <= scheduled + timedelta(seconds=after):
+            return scheduled.strftime("%Y-%m-%dT%H:%M")
+    return ""
+
+
+def world_boss_marker_path(device: str) -> Path:
+    return ROOT / "data" / "auto-hunt" / f"world-boss-{device}.json"
+
+
+def load_world_boss_marker(device: str) -> str:
+    path = world_boss_marker_path(device)
+    try:
+        return str(json.loads(path.read_text(encoding="utf-8")).get("slot", ""))
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        return ""
+
+
+def save_world_boss_marker(device: str, slot: str):
+    path = world_boss_marker_path(device)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({"slot": slot}), encoding="utf-8")
+
+
 def burst_tap(adb: str, device: str, point: list[int], count: int, delay: float):
     for _ in range(count):
         tap(adb, device, point[0], point[1])
@@ -319,14 +369,23 @@ def world_boss_tick(
     actions_enabled = not global_cfg["dry_run"] and device_cfg.get("actions_enabled", False)
     elapsed = monotonic_now - runtime.state_since
     if runtime.state == "idle":
-        red = count_world_boss_red(image, cfg["icon_region"])
-        if world_boss_schedule_active(wall_now, cfg) and red >= int(cfg["minimum_icon_red_pixels"]):
-            logger.warning("world boss icon detected red=%s", red)
+        slot = world_boss_schedule_slot(wall_now, cfg)
+        signature = bool(slot) and world_boss_icon_visible(image, cfg)
+        runtime.icon_frames = runtime.icon_frames + 1 if signature else 0
+        if (
+            slot
+            and slot != runtime.completed_slot
+            and runtime.icon_frames >= int(cfg.get("icon_confirm_frames", 3))
+        ):
+            logger.warning("world boss icon signature confirmed slot=%s", slot)
             if actions_enabled:
                 tap(adb, device, *device_boss["icon_point"])
+                save_world_boss_marker(device, slot)
+            runtime.completed_slot = slot
             runtime.state = "menu"
             runtime.state_since = monotonic_now
             runtime.last_action = monotonic_now
+            runtime.icon_frames = 0
     elif runtime.state == "menu" and elapsed >= float(cfg["menu_wait_seconds"]):
         logger.info("world boss entry button")
         if actions_enabled:
@@ -416,7 +475,7 @@ def device_loop(global_cfg: dict, device_cfg: dict, once: bool = False):
     history: deque[FrameState] = deque(maxlen=30)
     cooldown_until = 0.0
     logger = logging.getLogger(device)
-    world_boss = WorldBossRuntime()
+    world_boss = WorldBossRuntime(completed_slot=load_world_boss_marker(device))
 
     while True:
         image = screenshot(adb, device)

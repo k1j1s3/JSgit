@@ -190,11 +190,29 @@ class AutoHuntDetectionTest(unittest.TestCase):
         cfg = {
             "schedule": ["14:00", "23:00"],
             "schedule_before_seconds": 90,
-            "schedule_after_seconds": 1200,
+            "schedule_after_seconds": 180,
         }
         self.assertTrue(BOT.world_boss_schedule_active(datetime(2026, 8, 15, 22, 59), cfg))
-        self.assertTrue(BOT.world_boss_schedule_active(datetime(2026, 8, 15, 23, 10), cfg))
+        self.assertTrue(BOT.world_boss_schedule_active(datetime(2026, 8, 15, 23, 2), cfg))
+        self.assertFalse(BOT.world_boss_schedule_active(datetime(2026, 8, 15, 23, 10), cfg))
         self.assertFalse(BOT.world_boss_schedule_active(datetime(2026, 8, 15, 18, 0), cfg))
+
+    def test_world_boss_icon_requires_diamond_and_gold_caption(self):
+        image = Image.new("RGB", (100, 100), "black")
+        draw = ImageDraw.Draw(image)
+        quadrants = [[0, 0, 20, 20], [20, 0, 40, 20], [0, 20, 20, 40], [20, 20, 40, 40]]
+        for rect in quadrants:
+            draw.rectangle(tuple(rect), fill=(220, 20, 20))
+        draw.rectangle((0, 60, 60, 80), fill=(220, 150, 30))
+        cfg = {
+            "icon_quadrants": quadrants,
+            "minimum_icon_quadrant_red_pixels": 25,
+            "icon_caption_region": [0, 60, 60, 80],
+            "minimum_icon_caption_gold_pixels": 120,
+        }
+        self.assertTrue(BOT.world_boss_icon_visible(image, cfg))
+        ImageDraw.Draw(image).rectangle((0, 60, 60, 80), fill="black")
+        self.assertFalse(BOT.world_boss_icon_visible(image, cfg))
 
     def test_priority_loot_prefers_purple_then_red_then_blue(self):
         image = Image.new("RGB", (128, 64), "black")
@@ -227,8 +245,13 @@ class AutoHuntDetectionTest(unittest.TestCase):
             "world_boss": {"enabled": True, "icon_point": [10, 10]},
         }
         runtime = BOT.WorldBossRuntime()
+        runtime.icon_frames = 2
 
-        with patch.object(BOT, "tap") as tapped:
+        with (
+            patch.object(BOT, "tap") as tapped,
+            patch.object(BOT, "world_boss_icon_visible", return_value=True),
+            patch.object(BOT, "save_world_boss_marker") as marker,
+        ):
             state = BOT.world_boss_tick(
                 image,
                 100.0,
@@ -243,6 +266,7 @@ class AutoHuntDetectionTest(unittest.TestCase):
 
         self.assertEqual("menu", state)
         tapped.assert_called_once_with("adb", "device", 10, 10)
+        marker.assert_called_once_with("device", "2026-08-15T23:00")
 
 
 

@@ -56,6 +56,17 @@ class AutoHuntDetectionTest(unittest.TestCase):
             BOT.recover_quest_to_town("adb", "device", cfg, Mock())
         self.assertEqual([cfg["return_actions"], cfg["town_actions"]], [call.args[2] for call in execute.call_args_list])
 
+    def test_quest_mode_requires_explicit_enabled_marker(self):
+        marker = BOT.ROOT / "data" / "auto-hunt" / "test-quest-mode.json"
+        marker.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            marker.write_text('{"mode":"daily-quests"}', encoding="utf-8")
+            self.assertFalse(BOT.quest_mode_enabled({"quest_mode_marker": str(marker.relative_to(BOT.ROOT))}))
+            marker.write_text('{"enabled":true,"mode":"daily-quests"}', encoding="utf-8")
+            self.assertTrue(BOT.quest_mode_enabled({"quest_mode_marker": str(marker.relative_to(BOT.ROOT))}))
+        finally:
+            marker.unlink(missing_ok=True)
+
     def test_auto_active_requires_orange_ring(self):
         inactive = Image.new("RGB", (80, 90), (40, 40, 40))
         active = inactive.copy()
@@ -63,6 +74,13 @@ class AutoHuntDetectionTest(unittest.TestCase):
 
         self.assertFalse(BOT.is_auto_active(inactive, [0, 0, 80, 90], 500))
         self.assertTrue(BOT.is_auto_active(active, [0, 0, 80, 90], 500))
+
+    def test_close_overlay_detection_requires_red_close_button(self):
+        field = Image.new("RGB", (70, 70), (40, 40, 40))
+        menu = field.copy()
+        ImageDraw.Draw(menu).rectangle((10, 10, 30, 30), fill=(180, 35, 35))
+        self.assertFalse(BOT.is_close_overlay_open(field, [0, 0, 70, 70]))
+        self.assertTrue(BOT.is_close_overlay_open(menu, [0, 0, 70, 70]))
 
     def test_hp_measurement(self):
         image = Image.new("RGB", (100, 10), "black")

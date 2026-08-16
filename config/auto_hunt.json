@@ -93,6 +93,8 @@
         {"type": "tap", "point": [750, 590], "label": "confirm automatic purchase"},
         {"type": "wait", "seconds": 1.5, "label": "wait for purchase completion"},
         {"type": "tap", "point": [1235, 43], "label": "close shop UI"},
+        {"type": "wait", "seconds": 0.8},
+        {"type": "close_overlay_if_open", "point": [1235, 43], "label": "close menu overlay before opening the world map"},
         {"type": "wait", "seconds": 0.8}
       ],
       "hunting_routes": [

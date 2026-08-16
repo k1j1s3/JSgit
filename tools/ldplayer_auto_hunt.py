@@ -223,6 +223,14 @@ def is_auto_active(image: Image.Image, rect: list[int], minimum_orange_pixels: i
     return orange_pixels >= minimum_orange_pixels
 
 
+def is_close_overlay_open(image: Image.Image, rect: list[int], minimum_red_pixels: int = 80) -> bool:
+    red_pixels = sum(
+        1 for r, g, b in crop_pixels(image, rect)
+        if r >= 120 and r >= g * 1.45 and r >= b * 1.35
+    )
+    return red_pixels >= minimum_red_pixels
+
+
 def execute_actions(adb: str, device: str, actions: list[dict], logger):
     for action in actions:
         kind = action.get("type")
@@ -250,6 +258,13 @@ def execute_actions(adb: str, device: str, actions: list[dict], logger):
             if not active:
                 x, y = action["point"]
                 logger.info("tap (%s, %s): enable AUTO combat", x, y)
+                tap(adb, device, x, y)
+        elif kind == "close_overlay_if_open":
+            rect = action.get("region", [1200, 5, 1270, 75])
+            open_ = is_close_overlay_open(screenshot(adb, device), rect)
+            logger.info("close overlay open=%s: %s", open_, action.get("label", ""))
+            if open_:
+                x, y = action.get("point", [1235, 43])
                 tap(adb, device, x, y)
         elif kind == "wait":
             seconds = float(action["seconds"])
@@ -477,6 +492,18 @@ def recover_quest_to_town(adb: str, device: str, device_cfg: dict, logger):
     logger.warning("quest recovery complete; normal hunting route intentionally skipped")
 
 
+def quest_mode_enabled(global_cfg: dict) -> bool:
+    """Quest mode is opt-in; a stale marker must never change normal hunting."""
+    marker = global_cfg.get("quest_mode_marker")
+    if not marker:
+        return False
+    try:
+        payload = json.loads((ROOT / marker).read_text(encoding="utf-8"))
+    except (FileNotFoundError, OSError, ValueError, TypeError, json.JSONDecodeError):
+        return False
+    return payload.get("enabled") is True and payload.get("mode") == "daily-quests"
+
+
 def device_loop(global_cfg: dict, device_cfg: dict, once: bool = False):
     adb = global_cfg["adb_path"]
     device = device_cfg["device"]
@@ -505,8 +532,7 @@ def device_loop(global_cfg: dict, device_cfg: dict, once: bool = False):
             ),
         )
         history.append(state)
-        marker = global_cfg.get("quest_mode_marker")
-        quest_mode = bool(marker) and (ROOT / marker).exists()
+        quest_mode = quest_mode_enabled(global_cfg)
         threat, reason = detect_threat(
             history,
             global_cfg,

@@ -46,6 +46,16 @@ class AutoHuntDetectionTest(unittest.TestCase):
             [cfg["return_actions"], cfg["town_actions"], cfg["hunting_routes"][0]["actions"]],
         )
 
+    def test_quest_recovery_never_runs_normal_hunting_route(self):
+        cfg = {
+            "return_actions": [{"type": "tap", "point": [1, 1]}],
+            "town_actions": [{"type": "tap", "point": [2, 2]}],
+            "hunting_routes": [{"name": "wrong", "actions": [{"type": "tap", "point": [3, 3]}]}],
+        }
+        with patch.object(BOT, "execute_actions") as execute:
+            BOT.recover_quest_to_town("adb", "device", cfg, Mock())
+        self.assertEqual([cfg["return_actions"], cfg["town_actions"]], [call.args[2] for call in execute.call_args_list])
+
     def test_auto_active_requires_orange_ring(self):
         inactive = Image.new("RGB", (80, 90), (40, 40, 40))
         active = inactive.copy()

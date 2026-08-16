@@ -470,6 +470,13 @@ def recover_and_resume(adb: str, device: str, device_cfg: dict, logger):
     return route
 
 
+def recover_quest_to_town(adb: str, device: str, device_cfg: dict, logger):
+    """Quest mode must never choose a normal hunting route after escape."""
+    execute_actions(adb, device, device_cfg["return_actions"], logger)
+    execute_actions(adb, device, device_cfg.get("town_actions", []), logger)
+    logger.warning("quest recovery complete; normal hunting route intentionally skipped")
+
+
 def device_loop(global_cfg: dict, device_cfg: dict, once: bool = False):
     adb = global_cfg["adb_path"]
     device = device_cfg["device"]
@@ -518,7 +525,10 @@ def device_loop(global_cfg: dict, device_cfg: dict, once: bool = False):
                     device_cfg.get("actions_enabled", False),
                 )
             else:
-                recover_and_resume(adb, device, device_cfg, logger)
+                if quest_mode:
+                    recover_quest_to_town(adb, device, device_cfg, logger)
+                else:
+                    recover_and_resume(adb, device, device_cfg, logger)
             world_boss.state = "idle"
             world_boss.suppress_until = now + float(
                 global_cfg.get("world_boss", {}).get("completion_cooldown_seconds", 3600)

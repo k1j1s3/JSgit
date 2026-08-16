@@ -1,5 +1,6 @@
 param(
-    [string]$PythonPath = "C:\Users\k1j1s\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe"
+    [string]$PythonPath = "C:\Users\k1j1s\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe",
+    [string[]]$Devices = @("emulator-5554", "emulator-5556")
 )
 
 $ErrorActionPreference = "Stop"
@@ -23,7 +24,7 @@ if (Test-Path -LiteralPath $pidFile) {
 }
 
 $rows = @()
-foreach ($device in @("emulator-5554", "emulator-5556")) {
+foreach ($device in $Devices) {
     $safeName = $device.Replace(":", "-")
     $logFile = Join-Path $data "$safeName.log"
     $arguments = "tools\ldplayer_auto_hunt.py --device $device --log-file `"$logFile`""

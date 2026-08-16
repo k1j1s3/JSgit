@@ -49,9 +49,9 @@
     {
       "name": "player-1",
       "device": "emulator-5554",
-      "actions_enabled": true,
+      "actions_enabled": false,
       "world_boss": {
-        "enabled": true,
+        "enabled": false,
         "icon_point": [857, 50],
         "entry_point": [640, 650],
         "immune_scroll_point": [1018, 640],
@@ -147,9 +147,10 @@
     {
       "name": "player-2",
       "device": "emulator-5556",
-      "actions_enabled": false,
+      "inherits_from": "player-1",
+      "actions_enabled": true,
       "world_boss": {
-        "enabled": false
+        "enabled": true
       },
       "regions": {
         "hp_bar": [88, 41, 319, 58],

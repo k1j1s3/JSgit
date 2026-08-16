@@ -18,6 +18,16 @@ SPEC.loader.exec_module(BOT)
 
 
 class AutoHuntDetectionTest(unittest.TestCase):
+    def test_test_emulator_inherits_calibrated_actions_but_keeps_own_flags(self):
+        config_path = Path(__file__).parents[1] / "config" / "auto_hunt.json"
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+        test_device = BOT.resolve_device_config(config, config["devices"][1])
+        self.assertEqual("emulator-5556", test_device["device"])
+        self.assertTrue(test_device["actions_enabled"])
+        self.assertTrue(test_device["world_boss"]["enabled"])
+        self.assertEqual(config["devices"][0]["town_actions"], test_device["town_actions"])
+        self.assertEqual(config["devices"][0]["hunting_routes"], test_device["hunting_routes"])
+
     def test_hunting_routes_open_map_from_minimap_without_opening_skill_menu(self):
         config_path = Path(__file__).parents[1] / "config" / "auto_hunt.json"
         config = json.loads(config_path.read_text(encoding="utf-8"))

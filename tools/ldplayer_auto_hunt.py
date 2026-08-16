@@ -10,6 +10,7 @@ the same short time window.
 from __future__ import annotations
 
 import argparse
+import copy
 import io
 import json
 import logging
@@ -594,6 +595,25 @@ def validate(config: dict):
             raise ValueError(f"no hunting routes configured for {device['device']}")
 
 
+def resolve_device_config(config: dict, device: dict) -> dict:
+    """Let a test emulator reuse calibrated UI actions without enabling its source."""
+    source_name = device.get("inherits_from")
+    if not source_name:
+        return device
+    source = next((item for item in config["devices"] if item.get("name") == source_name), None)
+    if source is None:
+        raise ValueError(f"unknown inherited device config: {source_name}")
+    resolved = copy.deepcopy(source)
+    calibrated_keys = {"regions", "return_actions", "town_actions", "hunting_routes"}
+    resolved.update({
+        key: value for key, value in device.items()
+        if key not in calibrated_keys | {"inherits_from", "world_boss"}
+    })
+    if "world_boss" in device:
+        resolved["world_boss"].update(device["world_boss"])
+    return resolved
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
@@ -613,7 +633,7 @@ def main():
         format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
         handlers=handlers,
     )
-    devices = config["devices"]
+    devices = [resolve_device_config(config, item) for item in config["devices"]]
     if args.device:
         devices = [item for item in devices if item["device"] == args.device]
         if not devices:

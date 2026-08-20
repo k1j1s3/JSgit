@@ -1,6 +1,6 @@
 param(
     [string]$PythonPath = "C:\Users\k1j1s\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe",
-    [string[]]$Devices = @("emulator-5556")
+    [string[]]$Devices = @("emulator-5554", "emulator-5556")
 )
 
 $ErrorActionPreference = "Stop"

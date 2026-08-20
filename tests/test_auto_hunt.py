@@ -21,6 +21,7 @@ class AutoHuntDetectionTest(unittest.TestCase):
     def test_test_emulator_inherits_calibrated_actions_but_keeps_own_flags(self):
         config_path = Path(__file__).parents[1] / "config" / "auto_hunt.json"
         config = json.loads(config_path.read_text(encoding="utf-8"))
+        self.assertTrue(config["devices"][0]["actions_enabled"])
         test_device = BOT.resolve_device_config(config, config["devices"][1])
         self.assertEqual("emulator-5556", test_device["device"])
         self.assertTrue(test_device["actions_enabled"])

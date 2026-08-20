@@ -55,7 +55,7 @@
     {
       "name": "player-1",
       "device": "emulator-5554",
-      "actions_enabled": false,
+      "actions_enabled": true,
       "world_boss": {
         "enabled": false,
         "icon_point": [857, 50],

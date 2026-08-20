@@ -53,6 +53,22 @@ class AutoHuntDetectionTest(unittest.TestCase):
         self.assertEqual([998, 548], town_actions[0]["point"])
         self.assertEqual([998, 548], actions[-1]["point"])
 
+    def test_warehouse_loads_auto_storage_before_deposit_all(self):
+        config_path = Path(__file__).parents[1] / "config" / "auto_hunt.json"
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+        actions = config["devices"][0]["town_actions"]
+        load_index = next(
+            index for index, action in enumerate(actions)
+            if action.get("point") == [990, 648]
+            and "automatic-storage" in action.get("label", "")
+        )
+        deposit_index = next(
+            index for index, action in enumerate(actions)
+            if action.get("point") == [1150, 648]
+            and "deposit all" in action.get("label", "")
+        )
+        self.assertLess(load_index, deposit_index)
+
     def test_recovery_runs_town_actions_before_hunting_route(self):
         cfg = {
             "return_actions": [{"type": "tap", "point": [1, 1]}],

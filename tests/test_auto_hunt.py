@@ -27,21 +27,17 @@ class AutoHuntDetectionTest(unittest.TestCase):
         self.assertFalse(test_device["world_boss"]["enabled"])
         self.assertEqual(config["devices"][0]["town_actions"], test_device["town_actions"])
         self.assertEqual(config["devices"][0]["hunting_routes"], test_device["hunting_routes"])
-        self.assertEqual(1, len(test_device["hunting_routes"]))
-        self.assertEqual(
-            "03-dragon-valley-dungeon-central-entrance",
-            test_device["hunting_routes"][0]["name"],
-        )
+        self.assertEqual("round_robin", test_device["hunting_route_mode"])
+        self.assertEqual(2, len(test_device["hunting_routes"]))
+        self.assertEqual("blessed-teleport-saved-place-1-sanjeok3", test_device["hunting_routes"][0]["name"])
+        self.assertEqual("blessed-teleport-saved-place-2-gaemi6", test_device["hunting_routes"][1]["name"])
 
-    def test_hunting_routes_open_map_from_minimap_without_opening_skill_menu(self):
+    def test_hunting_routes_use_blessed_scroll_and_first_two_saved_places(self):
         config_path = Path(__file__).parents[1] / "config" / "auto_hunt.json"
         config = json.loads(config_path.read_text(encoding="utf-8"))
         routes = config["devices"][0]["hunting_routes"]
-        for route in routes:
-            first = route["actions"][0]
-            self.assertEqual("tap", first["type"])
-            self.assertEqual([1155, 205], first["point"])
-            self.assertIn("directly", first["label"])
+        self.assertEqual([[935, 635], [935, 635]], [route["actions"][0]["point"] for route in routes])
+        self.assertEqual([[190, 255], [190, 328]], [route["actions"][2]["point"] for route in routes])
 
     def test_normal_recovery_disables_auto_in_town_and_restores_it_on_field(self):
         config_path = Path(__file__).parents[1] / "config" / "auto_hunt.json"
@@ -86,6 +82,26 @@ class AutoHuntDetectionTest(unittest.TestCase):
             [call.args[2] for call in execute.call_args_list],
             [cfg["return_actions"], cfg["town_actions"], cfg["hunting_routes"][0]["actions"]],
         )
+
+    def test_round_robin_recovery_advances_persisted_route(self):
+        routes = [
+            {"name": "first", "actions": [{"type": "tap", "point": [3, 3]}]},
+            {"name": "second", "actions": [{"type": "tap", "point": [4, 4]}]},
+        ]
+        cfg = {
+            "return_actions": [],
+            "town_actions": [],
+            "hunting_routes": routes,
+            "hunting_route_mode": "round_robin",
+        }
+        with (
+            patch.object(BOT, "execute_actions", return_value=True),
+            patch.object(BOT, "load_hunting_route_index", return_value=1),
+            patch.object(BOT, "save_hunting_route_index") as save,
+        ):
+            selected = BOT.recover_and_resume("adb", "device", cfg, Mock())
+        self.assertEqual("second", selected["name"])
+        save.assert_called_once_with("device", 0)
 
     def test_quest_recovery_never_runs_normal_hunting_route(self):
         cfg = {

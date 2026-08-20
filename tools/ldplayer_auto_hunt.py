@@ -441,6 +441,26 @@ def save_world_boss_marker(device: str, slot: str):
     path.write_text(json.dumps({"slot": slot}), encoding="utf-8")
 
 
+def hunting_route_marker_path(device: str) -> Path:
+    return ROOT / "data" / "auto-hunt" / f"hunting-route-{device}.json"
+
+
+def load_hunting_route_index(device: str, route_count: int) -> int:
+    if route_count <= 0:
+        return 0
+    try:
+        payload = json.loads(hunting_route_marker_path(device).read_text(encoding="utf-8"))
+        return int(payload.get("next_index", 0)) % route_count
+    except (FileNotFoundError, OSError, ValueError, TypeError, json.JSONDecodeError):
+        return 0
+
+
+def save_hunting_route_index(device: str, next_index: int):
+    path = hunting_route_marker_path(device)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({"next_index": next_index}), encoding="utf-8")
+
+
 def burst_tap(adb: str, device: str, point: list[int], count: int, delay: float):
     for _ in range(count):
         tap(adb, device, point[0], point[1])
@@ -581,9 +601,18 @@ def recover_and_resume(adb: str, device: str, device_cfg: dict, logger):
                 break
             time.sleep(1.0)
         execute_actions(adb, device, device_cfg.get("recovery_cleanup_actions", []), logger)
-    route = random.choice(device_cfg["hunting_routes"])
-    logger.info("random hunting route selected: %s", route.get("name", ""))
-    execute_actions(adb, device, route["actions"], logger)
+    routes = device_cfg["hunting_routes"]
+    round_robin = device_cfg.get("hunting_route_mode") == "round_robin"
+    route_index = load_hunting_route_index(device, len(routes)) if round_robin else -1
+    route = routes[route_index] if round_robin else random.choice(routes)
+    logger.info(
+        "%s hunting route selected: %s",
+        "alternating" if round_robin else "random",
+        route.get("name", ""),
+    )
+    completed = execute_actions(adb, device, route["actions"], logger)
+    if round_robin and completed:
+        save_hunting_route_index(device, (route_index + 1) % len(routes))
     return route
 
 

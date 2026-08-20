@@ -27,6 +27,11 @@ class AutoHuntDetectionTest(unittest.TestCase):
         self.assertTrue(test_device["world_boss"]["enabled"])
         self.assertEqual(config["devices"][0]["town_actions"], test_device["town_actions"])
         self.assertEqual(config["devices"][0]["hunting_routes"], test_device["hunting_routes"])
+        self.assertEqual(1, len(test_device["hunting_routes"]))
+        self.assertEqual(
+            "03-dragon-valley-dungeon-central-entrance",
+            test_device["hunting_routes"][0]["name"],
+        )
 
     def test_hunting_routes_open_map_from_minimap_without_opening_skill_menu(self):
         config_path = Path(__file__).parents[1] / "config" / "auto_hunt.json"

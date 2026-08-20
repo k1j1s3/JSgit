@@ -286,7 +286,15 @@ def execute_actions(adb: str, device: str, actions: list[dict], logger):
         elif kind == "ensure_auto_off":
             rect = action.get("region", [960, 500, 1040, 590])
             minimum = int(action.get("minimum_orange_pixels", 500))
-            active = is_auto_active(screenshot(adb, device), rect, minimum)
+            sample_count = int(action.get("sample_count", 1))
+            sample_interval = float(action.get("sample_interval_seconds", 0.2))
+            active = False
+            for index in range(sample_count):
+                active = is_auto_active(screenshot(adb, device), rect, minimum)
+                if active:
+                    break
+                if index + 1 < sample_count:
+                    time.sleep(sample_interval)
             logger.info("AUTO state active=%s: %s", active, action.get("label", ""))
             if active:
                 x, y = action["point"]

@@ -52,11 +52,22 @@ class AutoHuntDetectionTest(unittest.TestCase):
         self.assertEqual([998, 548], fixed_town_actions[0]["point"])
         self.assertEqual([998, 548], actions[-1]["point"])
 
+    def test_return_command_is_immediately_followed_by_auto_disable(self):
+        config_path = Path(__file__).parents[1] / "config" / "auto_hunt.json"
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+        actions = config["devices"][0]["return_actions"]
+        self.assertEqual("tap", actions[0]["type"])
+        self.assertEqual([1232, 635], actions[0]["point"])
+        self.assertEqual("ensure_auto_off", actions[1]["type"])
+        self.assertEqual([998, 548], actions[1]["point"])
+
     def test_fixed_town_route_selects_giran_before_npc_actions(self):
         config_path = Path(__file__).parents[1] / "config" / "auto_hunt.json"
         config = json.loads(config_path.read_text(encoding="utf-8"))
         actions = config["devices"][0]["fixed_town_actions"]
-        self.assertIn([130, 365], [action.get("point") for action in actions])
+        self.assertIn([130, 655], [action.get("point") for action in actions])
+        self.assertIn([130, 535], [action.get("point") for action in actions])
+        self.assertNotIn("swipe", [action["type"] for action in actions])
         self.assertTrue(any("Giran village" in action.get("label", "") for action in actions))
 
     def test_warehouse_loads_auto_storage_before_deposit_all(self):

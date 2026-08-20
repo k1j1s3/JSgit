@@ -238,6 +238,14 @@ class AutoHuntDetectionTest(unittest.TestCase):
         ])
         self.assertFalse(BOT.detect_threat(history, cfg)[0])
 
+    def test_pvp_detection_can_be_disabled_during_stabilization(self):
+        cfg = {"detection": {"hp_drop_window_seconds": 2.5, "minimum_hp_drop_ratio": 0.025, "minimum_cyan_pixels": 900, "minimum_hostile_magenta_pixels": 2500, "minimum_pvp_red_pixels": 500, "safe_zone_cyan_pixels": 150, "emergency_hp_ratio": 0.20, "pvp_detection_enabled": False}}
+        history = deque([
+            BOT.FrameState(1.0, 0.80, 9000, 12000, 2000, 0),
+            BOT.FrameState(2.0, 0.70, 9000, 12000, 2000, 0),
+        ])
+        self.assertFalse(BOT.detect_threat(history, cfg)[0])
+
     def test_quest_mode_ignores_combat_color_false_positive_above_twenty_percent(self):
         cfg = {"detection": {"hp_drop_window_seconds": 2.5, "minimum_hp_drop_ratio": 0.025, "minimum_cyan_pixels": 900, "minimum_hostile_magenta_pixels": 2500, "minimum_pvp_red_pixels": 500, "safe_zone_cyan_pixels": 150, "emergency_hp_ratio": 0.20}}
         history = deque([BOT.FrameState(1.0, 0.80, 9000, 12000, 900, 0), BOT.FrameState(2.0, 0.70, 9000, 12000, 900, 0)])

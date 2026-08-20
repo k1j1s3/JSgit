@@ -333,6 +333,8 @@ def detect_threat(
         f"cyan={cyan} hostile={hostile} pvp_red={pvp_red} "
         f"safe={now.safe_zone_pixels}"
     )
+    if not cfg["detection"].get("pvp_detection_enabled", True):
+        return False, reason + " pvp-detection-disabled"
     # Ordinary monster packs also produce cyan/magenta combat pixels.  A HP
     # drop is only treated as PvP when the dedicated PvP UI is visible too.
     hp_signal = enough_drop and player_nearby and hostile_visible and pvp_visible
@@ -505,7 +507,19 @@ def recover_and_resume(adb: str, device: str, device_cfg: dict, logger):
         if safe < minimum:
             logger.error("return verification failed safe=%s minimum=%s; aborting follow-up clicks", safe, minimum)
             return None
-    execute_actions(adb, device, device_cfg.get("town_actions", []), logger)
+    if device_cfg.get("town_actions_enabled", True):
+        execute_actions(adb, device, device_cfg.get("town_actions", []), logger)
+    else:
+        logger.info("town NPC clicks disabled; waiting for safe HP recovery")
+        deadline = time.monotonic() + float(device_cfg.get("town_recovery_timeout_seconds", 60))
+        target = float(device_cfg.get("town_recovery_hp_ratio", 0.90))
+        while time.monotonic() < deadline:
+            hp = measure_hp(screenshot(adb, device), device_cfg["regions"]["hp_bar"])
+            logger.info("town recovery hp=%.3f target=%.3f", hp, target)
+            if hp >= target:
+                break
+            time.sleep(1.0)
+        execute_actions(adb, device, device_cfg.get("recovery_cleanup_actions", []), logger)
     route = random.choice(device_cfg["hunting_routes"])
     logger.info("random hunting route selected: %s", route.get("name", ""))
     execute_actions(adb, device, route["actions"], logger)

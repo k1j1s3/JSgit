@@ -13,6 +13,7 @@
     "safe_zone_cyan_pixels": 150,
     "emergency_hp_ratio": 0.20,
     "emergency_confirm_frames": 2,
+    "pvp_detection_enabled": false,
     "cooldown_seconds": 2
   },
   "world_boss": {
@@ -126,6 +127,12 @@
       "device": "emulator-5556",
       "inherits_from": "player-1",
       "actions_enabled": true,
+      "town_actions_enabled": false,
+      "town_recovery_hp_ratio": 0.90,
+      "town_recovery_timeout_seconds": 60,
+      "recovery_cleanup_actions": [
+        {"type": "close_overlay_if_open", "region": [330, 80, 385, 135], "point": [359, 111], "label": "close accidental friend panel before routing"}
+      ],
       "world_boss": {
         "enabled": false
       },

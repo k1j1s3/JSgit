@@ -89,6 +89,25 @@ class AutoHuntDetectionTest(unittest.TestCase):
         )
         self.assertLess(load_index, deposit_index)
 
+    def test_shop_buys_orange_potions_at_max_weight_without_auto_order(self):
+        config_path = Path(__file__).parents[1] / "config" / "auto_hunt.json"
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+        actions = config["devices"][0]["town_actions"]
+        points = [action.get("point") for action in actions]
+        self.assertNotIn([990, 648], [
+            action.get("point") for action in actions
+            if "order" in action.get("label", "").lower()
+        ])
+        potion_index = points.index([190, 310])
+        max_index = points.index([735, 648])
+        buy_index = next(
+            index for index, action in enumerate(actions)
+            if action.get("point") == [1150, 648]
+            and "orange potions" in action.get("label", "")
+        )
+        self.assertLess(potion_index, max_index)
+        self.assertLess(max_index, buy_index)
+
     def test_recovery_runs_town_actions_before_hunting_route(self):
         cfg = {
             "return_actions": [{"type": "tap", "point": [1, 1]}],

@@ -10,7 +10,7 @@
     "minimum_cyan_pixels": 900,
     "minimum_hostile_magenta_pixels": 2500,
     "minimum_pvp_red_pixels": 500,
-    "safe_zone_cyan_pixels": 150,
+    "safe_zone_cyan_pixels": 100,
     "critical_hp_ratio": 0.15,
     "emergency_hp_ratio": 0.25,
     "emergency_confirm_frames": 2,
@@ -134,6 +134,7 @@
       "inherits_from": "player-1",
       "actions_enabled": true,
       "town_actions_enabled": true,
+      "safe_zone_cyan_pixels": 100,
       "town_recovery_hp_ratio": 0.90,
       "town_recovery_timeout_seconds": 60,
       "recovery_cleanup_actions": [

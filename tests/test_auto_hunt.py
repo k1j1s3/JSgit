@@ -97,6 +97,14 @@ class AutoHuntDetectionTest(unittest.TestCase):
         self.assertFalse(BOT.is_close_overlay_open(field, [0, 0, 70, 70]))
         self.assertTrue(BOT.is_close_overlay_open(menu, [0, 0, 70, 70]))
 
+    def test_reference_verification_distinguishes_shop_from_warehouse(self):
+        shop = Image.open(BOT.ROOT / "data/auto-hunt/town-general-merchant.png").convert("RGB")
+        shop_after = Image.open(BOT.ROOT / "data/auto-hunt/town-auto-purchase-confirmed.png").convert("RGB")
+        warehouse = Image.open(BOT.ROOT / "data/auto-hunt/warehouse-interaction.png").convert("RGB")
+        regions = [[1000, 10, 1200, 75], [0, 80, 390, 550], [900, 610, 1245, 690]]
+        self.assertGreater(BOT.reference_similarity(shop_after, shop, regions), 0.99)
+        self.assertLess(BOT.reference_similarity(warehouse, shop, regions), 0.97)
+
     def test_hp_measurement(self):
         image = Image.new("RGB", (100, 10), "black")
         ImageDraw.Draw(image).rectangle((0, 0, 59, 9), fill=(220, 20, 20))

@@ -23,7 +23,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from PIL import Image
+from PIL import Image, ImageChops, ImageStat
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -232,6 +232,17 @@ def is_close_overlay_open(image: Image.Image, rect: list[int], minimum_red_pixel
     return red_pixels >= minimum_red_pixels
 
 
+def reference_similarity(image: Image.Image, reference: Image.Image, regions: list[list[int]]) -> float:
+    scores = []
+    for rect in regions:
+        current = image.crop(tuple(rect)).convert("RGB")
+        expected = reference.crop(tuple(rect)).convert("RGB")
+        difference = ImageChops.difference(current, expected)
+        mean = sum(ImageStat.Stat(difference).mean) / (3 * 255)
+        scores.append(1.0 - mean)
+    return sum(scores) / max(1, len(scores))
+
+
 def execute_actions(adb: str, device: str, actions: list[dict], logger):
     for action in actions:
         kind = action.get("type")
@@ -281,12 +292,26 @@ def execute_actions(adb: str, device: str, actions: list[dict], logger):
                     break
                 time.sleep(0.15)
             logger.info("gameplay ready=%s within %.1fs: %s", ready, timeout, action.get("label", ""))
+        elif kind == "verify_reference":
+            reference_path = ROOT / action["reference"]
+            if not reference_path.exists():
+                logger.error("verification reference missing: %s", reference_path)
+                return False
+            current = screenshot(adb, device)
+            reference = Image.open(reference_path).convert("RGB")
+            score = reference_similarity(current, reference, action["regions"])
+            minimum = float(action.get("minimum_similarity", 0.90))
+            logger.info("reference verification score=%.3f minimum=%.3f: %s", score, minimum, action.get("label", ""))
+            if score < minimum:
+                logger.error("unexpected UI; aborting remaining actions")
+                return False
         elif kind == "wait":
             seconds = float(action["seconds"])
             logger.info("wait %.1fs: %s", seconds, action.get("label", ""))
             time.sleep(seconds)
         else:
             raise ValueError(f"unknown action type: {kind!r}")
+    return True
 
 
 def save_evidence(image: Image.Image, output: Path, device: str, label: str):
@@ -521,7 +546,9 @@ def recover_and_resume(adb: str, device: str, device_cfg: dict, logger):
             logger.error("return verification failed safe=%s minimum=%s; aborting follow-up clicks", safe, minimum)
             return None
     if device_cfg.get("town_actions_enabled", True):
-        execute_actions(adb, device, device_cfg.get("town_actions", []), logger)
+        if not execute_actions(adb, device, device_cfg.get("town_actions", []), logger):
+            logger.error("town routine verification failed; hunting route aborted")
+            return None
     else:
         logger.info("town NPC clicks disabled; waiting for safe HP recovery")
         deadline = time.monotonic() + float(device_cfg.get("town_recovery_timeout_seconds", 60))

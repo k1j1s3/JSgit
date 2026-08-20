@@ -43,12 +43,15 @@ class AutoHuntDetectionTest(unittest.TestCase):
             self.assertEqual([1155, 205], first["point"])
             self.assertIn("directly", first["label"])
 
-    def test_normal_recovery_route_never_toggles_auto(self):
+    def test_normal_recovery_disables_auto_in_town_and_restores_it_on_field(self):
         config_path = Path(__file__).parents[1] / "config" / "auto_hunt.json"
         config = json.loads(config_path.read_text(encoding="utf-8"))
+        town_actions = config["devices"][0]["town_actions"]
         actions = config["devices"][0]["hunting_routes"][0]["actions"]
-        self.assertNotIn("ensure_auto", [action["type"] for action in actions])
-        self.assertNotIn([998, 548], [action.get("point") for action in actions])
+        self.assertEqual("ensure_auto_off", town_actions[0]["type"])
+        self.assertEqual("ensure_auto", actions[-1]["type"])
+        self.assertEqual([998, 548], town_actions[0]["point"])
+        self.assertEqual([998, 548], actions[-1]["point"])
 
     def test_recovery_runs_town_actions_before_hunting_route(self):
         cfg = {
@@ -110,6 +113,19 @@ class AutoHuntDetectionTest(unittest.TestCase):
         logger = Mock()
         with patch.object(BOT, "screenshot", side_effect=[inactive, active]), patch.object(BOT, "tap") as tap:
             BOT.execute_actions("adb", "device", [action], logger)
+        tap.assert_not_called()
+
+    def test_ensure_auto_off_only_taps_an_active_auto_button(self):
+        inactive = Image.new("RGB", (1280, 720), (40, 40, 40))
+        active = inactive.copy()
+        ImageDraw.Draw(active).rectangle((960, 500, 989, 529), fill=(220, 110, 20))
+        action = {"type": "ensure_auto_off", "point": [998, 548]}
+        with patch.object(BOT, "screenshot", return_value=active), patch.object(BOT, "tap") as tap:
+            BOT.execute_actions("adb", "device", [action], Mock())
+        tap.assert_called_once_with("adb", "device", 998, 548)
+
+        with patch.object(BOT, "screenshot", return_value=inactive), patch.object(BOT, "tap") as tap:
+            BOT.execute_actions("adb", "device", [action], Mock())
         tap.assert_not_called()
 
     def test_close_overlay_detection_requires_red_close_button(self):

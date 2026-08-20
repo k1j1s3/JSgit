@@ -283,6 +283,15 @@ def execute_actions(adb: str, device: str, actions: list[dict], logger):
                 x, y = action["point"]
                 logger.info("tap (%s, %s): enable AUTO combat", x, y)
                 tap(adb, device, x, y)
+        elif kind == "ensure_auto_off":
+            rect = action.get("region", [960, 500, 1040, 590])
+            minimum = int(action.get("minimum_orange_pixels", 500))
+            active = is_auto_active(screenshot(adb, device), rect, minimum)
+            logger.info("AUTO state active=%s: %s", active, action.get("label", ""))
+            if active:
+                x, y = action["point"]
+                logger.info("tap (%s, %s): disable AUTO during town chores", x, y)
+                tap(adb, device, x, y)
         elif kind == "close_overlay_if_open":
             rect = action.get("region", [1200, 5, 1270, 75])
             open_ = is_close_overlay_open(screenshot(adb, device), rect)

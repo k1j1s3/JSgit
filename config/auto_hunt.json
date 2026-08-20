@@ -79,9 +79,24 @@
         {"type": "tap", "point": [1232, 635], "label": "verified return-scroll hotbar slot"},
         {"type": "wait", "seconds": 5.0, "label": "wait for town load"}
       ],
+      "fixed_town_actions": [
+        {"type": "ensure_auto_off", "point": [998, 548], "label": "disable persistent AUTO before fixed-town routing"},
+        {"type": "tap", "point": [1155, 205], "label": "open world map from returned town"},
+        {"type": "wait", "seconds": 1.0},
+        {"type": "tap", "point": [435, 105], "label": "select Aden continent tab"},
+        {"type": "wait", "seconds": 0.7},
+        {"type": "swipe", "start": [140, 600], "end": [140, 250], "duration_ms": 450, "label": "normalize Aden list to bottom 1/3"},
+        {"type": "swipe", "start": [140, 600], "end": [140, 250], "duration_ms": 450, "label": "normalize Aden list to bottom 2/3"},
+        {"type": "swipe", "start": [140, 600], "end": [140, 250], "duration_ms": 450, "label": "normalize Aden list to bottom 3/3"},
+        {"type": "wait", "seconds": 0.5},
+        {"type": "tap", "point": [130, 365], "label": "select 26. Giran village"},
+        {"type": "wait", "seconds": 0.7},
+        {"type": "tap", "point": [1060, 655], "label": "move to fixed Giran village"},
+        {"type": "wait_for_gameplay", "timeout_seconds": 4.0, "initial_delay_seconds": 1.0, "hp_region": [88, 41, 319, 58], "label": "wait for Giran village HUD"},
+        {"type": "verify_reference", "reference": "data/auto-hunt/giran-town.png", "regions": [[1100, 280, 1245, 340]], "minimum_similarity": 0.90, "label": "verify fixed Giran village before NPC clicks"}
+      ],
       "hunting_route_mode": "round_robin",
       "town_actions": [
-        {"type": "ensure_auto_off", "point": [998, 548], "label": "disable persistent AUTO before NPC routing"},
         {"type": "tap", "point": [1033, 240], "label": "open town NPC quick-move list"},
         {"type": "wait", "seconds": 0.6},
         {"type": "swipe", "start": [190, 220], "end": [190, 580], "duration_ms": 450, "label": "normalize NPC list to top 1/2"},
@@ -119,7 +134,9 @@
           "actions": [
             {"type": "tap", "point": [935, 635], "label": "open blessed-teleport saved-place list"},
             {"type": "wait", "seconds": 0.5},
-            {"type": "tap", "point": [190, 255], "label": "teleport to first saved hunting place Sanjeok3"},
+            {"type": "tap", "point": [190, 255], "label": "select first saved hunting place Sanjeok3"},
+            {"type": "wait", "seconds": 0.3},
+            {"type": "tap", "point": [335, 255], "label": "confirm blessed teleport to Sanjeok3"},
             {"type": "wait_for_gameplay", "timeout_seconds": 3.0, "initial_delay_seconds": 0.4, "hp_region": [88, 41, 319, 58], "label": "wait for first saved hunting field"},
             {"type": "ensure_auto", "point": [998, 548], "sample_count": 5, "sample_interval_seconds": 0.35, "label": "restore AUTO after first blessed teleport"}
           ]
@@ -129,7 +146,9 @@
           "actions": [
             {"type": "tap", "point": [935, 635], "label": "open blessed-teleport saved-place list"},
             {"type": "wait", "seconds": 0.5},
-            {"type": "tap", "point": [190, 328], "label": "teleport to second saved hunting place Gaemi6"},
+            {"type": "tap", "point": [190, 328], "label": "select second saved hunting place Gaemi6"},
+            {"type": "wait", "seconds": 0.3},
+            {"type": "tap", "point": [335, 328], "label": "confirm blessed teleport to Gaemi6"},
             {"type": "wait_for_gameplay", "timeout_seconds": 3.0, "initial_delay_seconds": 0.4, "hp_region": [88, 41, 319, 58], "label": "wait for second saved hunting field"},
             {"type": "ensure_auto", "point": [998, 548], "sample_count": 5, "sample_interval_seconds": 0.35, "label": "restore AUTO after town chores"}
           ]

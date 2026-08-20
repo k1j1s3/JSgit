@@ -586,6 +586,10 @@ def recover_and_resume(adb: str, device: str, device_cfg: dict, logger):
         if safe < minimum:
             logger.error("return verification failed safe=%s minimum=%s; aborting follow-up clicks", safe, minimum)
             return None
+    fixed_town_actions = device_cfg.get("fixed_town_actions", [])
+    if fixed_town_actions and not execute_actions(adb, device, fixed_town_actions, logger):
+        logger.error("fixed-town routing failed; town chores aborted")
+        return None
     if device_cfg.get("town_actions_enabled", True):
         if not execute_actions(adb, device, device_cfg.get("town_actions", []), logger):
             logger.error("town routine verification failed; hunting route aborted")
@@ -619,6 +623,9 @@ def recover_and_resume(adb: str, device: str, device_cfg: dict, logger):
 def recover_quest_to_town(adb: str, device: str, device_cfg: dict, logger):
     """Quest mode must never choose a normal hunting route after escape."""
     execute_actions(adb, device, device_cfg["return_actions"], logger)
+    fixed_town_actions = device_cfg.get("fixed_town_actions", [])
+    if fixed_town_actions:
+        execute_actions(adb, device, fixed_town_actions, logger)
     execute_actions(adb, device, device_cfg.get("town_actions", []), logger)
     logger.warning("quest recovery complete; normal hunting route intentionally skipped")
 
@@ -734,7 +741,7 @@ def resolve_device_config(config: dict, device: dict) -> dict:
     if source is None:
         raise ValueError(f"unknown inherited device config: {source_name}")
     resolved = copy.deepcopy(source)
-    calibrated_keys = {"regions", "return_actions", "town_actions", "hunting_routes"}
+    calibrated_keys = {"regions", "return_actions", "fixed_town_actions", "town_actions", "hunting_routes"}
     resolved.update({
         key: value for key, value in device.items()
         if key not in calibrated_keys | {"inherits_from", "world_boss"}

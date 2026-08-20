@@ -26,6 +26,7 @@ class AutoHuntDetectionTest(unittest.TestCase):
         self.assertTrue(test_device["actions_enabled"])
         self.assertFalse(test_device["world_boss"]["enabled"])
         self.assertEqual(config["devices"][0]["town_actions"], test_device["town_actions"])
+        self.assertEqual(config["devices"][0]["fixed_town_actions"], test_device["fixed_town_actions"])
         self.assertEqual(config["devices"][0]["hunting_routes"], test_device["hunting_routes"])
         self.assertEqual("round_robin", test_device["hunting_route_mode"])
         self.assertEqual(2, len(test_device["hunting_routes"]))
@@ -38,16 +39,25 @@ class AutoHuntDetectionTest(unittest.TestCase):
         routes = config["devices"][0]["hunting_routes"]
         self.assertEqual([[935, 635], [935, 635]], [route["actions"][0]["point"] for route in routes])
         self.assertEqual([[190, 255], [190, 328]], [route["actions"][2]["point"] for route in routes])
+        self.assertEqual([[335, 255], [335, 328]], [route["actions"][4]["point"] for route in routes])
 
     def test_normal_recovery_disables_auto_in_town_and_restores_it_on_field(self):
         config_path = Path(__file__).parents[1] / "config" / "auto_hunt.json"
         config = json.loads(config_path.read_text(encoding="utf-8"))
         town_actions = config["devices"][0]["town_actions"]
+        fixed_town_actions = config["devices"][0]["fixed_town_actions"]
         actions = config["devices"][0]["hunting_routes"][0]["actions"]
-        self.assertEqual("ensure_auto_off", town_actions[0]["type"])
+        self.assertEqual("ensure_auto_off", fixed_town_actions[0]["type"])
         self.assertEqual("ensure_auto", actions[-1]["type"])
-        self.assertEqual([998, 548], town_actions[0]["point"])
+        self.assertEqual([998, 548], fixed_town_actions[0]["point"])
         self.assertEqual([998, 548], actions[-1]["point"])
+
+    def test_fixed_town_route_selects_giran_before_npc_actions(self):
+        config_path = Path(__file__).parents[1] / "config" / "auto_hunt.json"
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+        actions = config["devices"][0]["fixed_town_actions"]
+        self.assertIn([130, 365], [action.get("point") for action in actions])
+        self.assertTrue(any("Giran village" in action.get("label", "") for action in actions))
 
     def test_warehouse_loads_auto_storage_before_deposit_all(self):
         config_path = Path(__file__).parents[1] / "config" / "auto_hunt.json"
@@ -68,6 +78,7 @@ class AutoHuntDetectionTest(unittest.TestCase):
     def test_recovery_runs_town_actions_before_hunting_route(self):
         cfg = {
             "return_actions": [{"type": "tap", "point": [1, 1]}],
+            "fixed_town_actions": [{"type": "tap", "point": [9, 9]}],
             "town_actions": [{"type": "tap", "point": [2, 2]}],
             "hunting_routes": [
                 {"name": "route", "actions": [{"type": "tap", "point": [3, 3]}]}
@@ -80,7 +91,7 @@ class AutoHuntDetectionTest(unittest.TestCase):
         self.assertEqual(route["name"], "route")
         self.assertEqual(
             [call.args[2] for call in execute.call_args_list],
-            [cfg["return_actions"], cfg["town_actions"], cfg["hunting_routes"][0]["actions"]],
+            [cfg["return_actions"], cfg["fixed_town_actions"], cfg["town_actions"], cfg["hunting_routes"][0]["actions"]],
         )
 
     def test_round_robin_recovery_advances_persisted_route(self):

@@ -69,6 +69,8 @@ class AutoHuntDetectionTest(unittest.TestCase):
         self.assertIn([130, 535], [action.get("point") for action in actions])
         self.assertNotIn("swipe", [action["type"] for action in actions])
         self.assertTrue(any("Giran village" in action.get("label", "") for action in actions))
+        verification = next(action for action in actions if action["type"] == "verify_reference")
+        self.assertLessEqual(verification["minimum_similarity"], 0.857)
 
     def test_warehouse_loads_auto_storage_before_deposit_all(self):
         config_path = Path(__file__).parents[1] / "config" / "auto_hunt.json"

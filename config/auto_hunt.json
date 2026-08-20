@@ -90,7 +90,7 @@
         {"type": "wait", "seconds": 0.7},
         {"type": "tap", "point": [1060, 655], "label": "move to fixed Giran village"},
         {"type": "wait_for_gameplay", "timeout_seconds": 4.0, "initial_delay_seconds": 1.0, "hp_region": [88, 41, 319, 58], "label": "wait for Giran village HUD"},
-        {"type": "verify_reference", "reference": "data/auto-hunt/giran-town.png", "regions": [[1100, 280, 1245, 340]], "minimum_similarity": 0.90, "label": "verify fixed Giran village before NPC clicks"}
+        {"type": "verify_reference", "reference": "data/auto-hunt/giran-town.png", "regions": [[1120, 285, 1218, 337]], "minimum_similarity": 0.84, "label": "verify fixed Giran village name before NPC clicks"}
       ],
       "hunting_route_mode": "round_robin",
       "town_actions": [

@@ -303,14 +303,17 @@ def detect_threat(
 ) -> tuple[bool, str]:
     now = history[-1]
     not_safe = now.safe_zone_pixels < int(cfg["detection"]["safe_zone_cyan_pixels"])
-    emergency_limit = float(cfg["detection"].get("emergency_hp_ratio", 0.20))
+    critical_limit = float(cfg["detection"].get("critical_hp_ratio", 0.15))
+    critical_hp = 0.0 < now.hp_ratio <= critical_limit
+    emergency_limit = float(cfg["detection"].get("emergency_hp_ratio", 0.25))
     emergency_frames = int(cfg["detection"].get("emergency_confirm_frames", 2))
     recent_emergency = list(history)[-emergency_frames:]
     emergency_hp = len(recent_emergency) == emergency_frames and all(
         0.0 < sample.hp_ratio <= emergency_limit for sample in recent_emergency
     )
-    if emergency_hp and (not_safe or emergency_in_safe_zone):
-        return True, f"emergency-low-hp hp={now.hp_ratio:.3f} safe={now.safe_zone_pixels}"
+    if (critical_hp or emergency_hp) and (not_safe or emergency_in_safe_zone):
+        tier = "critical" if critical_hp else "confirmed-low"
+        return True, f"{tier}-hp hp={now.hp_ratio:.3f} safe={now.safe_zone_pixels}"
     if emergency_only:
         return False, f"quest-mode hp={now.hp_ratio:.3f} safe={now.safe_zone_pixels}"
     if len(history) < 2:
@@ -335,6 +338,16 @@ def detect_threat(
     )
     if not cfg["detection"].get("pvp_detection_enabled", True):
         return False, reason + " pvp-detection-disabled"
+    strong_frames = int(cfg["detection"].get("strong_pvp_confirm_frames", 2))
+    strong_threshold = int(cfg["detection"].get("strong_pvp_red_pixels", 2000))
+    recent_pvp = list(history)[-strong_frames:]
+    strong_pvp = len(recent_pvp) == strong_frames and all(
+        sample.pvp_red_pixels >= strong_threshold for sample in recent_pvp
+    )
+    if strong_pvp and not_safe:
+        return True, reason + " strong-pvp-confirmed"
+    if not cfg["detection"].get("legacy_pvp_detection_enabled", False):
+        return False, reason
     # Ordinary monster packs also produce cyan/magenta combat pixels.  A HP
     # drop is only treated as PvP when the dedicated PvP UI is visible too.
     hp_signal = enough_drop and player_nearby and hostile_visible and pvp_visible

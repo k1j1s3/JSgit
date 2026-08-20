@@ -11,9 +11,13 @@
     "minimum_hostile_magenta_pixels": 2500,
     "minimum_pvp_red_pixels": 500,
     "safe_zone_cyan_pixels": 150,
-    "emergency_hp_ratio": 0.20,
+    "critical_hp_ratio": 0.15,
+    "emergency_hp_ratio": 0.25,
     "emergency_confirm_frames": 2,
-    "pvp_detection_enabled": false,
+    "pvp_detection_enabled": true,
+    "strong_pvp_red_pixels": 2000,
+    "strong_pvp_confirm_frames": 2,
+    "legacy_pvp_detection_enabled": false,
     "cooldown_seconds": 2
   },
   "world_boss": {

@@ -111,6 +111,7 @@ class AutoHuntDetectionTest(unittest.TestCase):
                 "minimum_hostile_magenta_pixels": 500,
                 "minimum_pvp_red_pixels": 500,
                 "safe_zone_cyan_pixels": 150,
+                "legacy_pvp_detection_enabled": True,
             }
         }
         history = deque(
@@ -132,6 +133,7 @@ class AutoHuntDetectionTest(unittest.TestCase):
                 "minimum_hostile_magenta_pixels": 500,
                 "minimum_pvp_red_pixels": 500,
                 "safe_zone_cyan_pixels": 150,
+                "legacy_pvp_detection_enabled": True,
             }
         }
         history = deque(
@@ -151,6 +153,7 @@ class AutoHuntDetectionTest(unittest.TestCase):
                 "minimum_hostile_magenta_pixels": 500,
                 "minimum_pvp_red_pixels": 500,
                 "safe_zone_cyan_pixels": 150,
+                "legacy_pvp_detection_enabled": True,
             }
         }
         history = deque(
@@ -245,6 +248,28 @@ class AutoHuntDetectionTest(unittest.TestCase):
             BOT.FrameState(2.0, 0.70, 9000, 12000, 2000, 0),
         ])
         self.assertFalse(BOT.detect_threat(history, cfg)[0])
+
+    def test_real_pk_signature_from_incident_triggers_after_two_frames(self):
+        cfg = {"detection": {"hp_drop_window_seconds": 2.5, "minimum_hp_drop_ratio": 0.025, "minimum_cyan_pixels": 900, "minimum_hostile_magenta_pixels": 2500, "minimum_pvp_red_pixels": 500, "safe_zone_cyan_pixels": 150, "critical_hp_ratio": 0.15, "emergency_hp_ratio": 0.25, "emergency_confirm_frames": 2, "pvp_detection_enabled": True, "strong_pvp_red_pixels": 2000, "strong_pvp_confirm_frames": 2}}
+        history = deque([
+            BOT.FrameState(1.0, 1.0, 4120, 3857, 2693, 0),
+            BOT.FrameState(2.0, 1.0, 3454, 3519, 3186, 0),
+        ])
+        triggered, reason = BOT.detect_threat(history, cfg)
+        self.assertTrue(triggered)
+        self.assertIn("strong-pvp-confirmed", reason)
+
+    def test_previous_1076_red_pixel_false_positive_does_not_trigger(self):
+        cfg = {"detection": {"hp_drop_window_seconds": 2.5, "minimum_hp_drop_ratio": 0.025, "minimum_cyan_pixels": 900, "minimum_hostile_magenta_pixels": 2500, "minimum_pvp_red_pixels": 500, "safe_zone_cyan_pixels": 150, "critical_hp_ratio": 0.15, "emergency_hp_ratio": 0.25, "emergency_confirm_frames": 2, "pvp_detection_enabled": True, "strong_pvp_red_pixels": 2000, "strong_pvp_confirm_frames": 2}}
+        history = deque([
+            BOT.FrameState(1.0, 0.589, 3348, 1930, 493, 0),
+            BOT.FrameState(2.0, 0.584, 2991, 2866, 1076, 0),
+        ])
+        self.assertFalse(BOT.detect_threat(history, cfg)[0])
+
+    def test_critical_hp_triggers_on_first_valid_frame(self):
+        cfg = {"detection": {"hp_drop_window_seconds": 2.5, "minimum_hp_drop_ratio": 0.025, "minimum_cyan_pixels": 900, "minimum_hostile_magenta_pixels": 2500, "minimum_pvp_red_pixels": 500, "safe_zone_cyan_pixels": 150, "critical_hp_ratio": 0.15, "emergency_hp_ratio": 0.25, "emergency_confirm_frames": 2}}
+        self.assertTrue(BOT.detect_threat(deque([BOT.FrameState(1.0, 0.10, 0, 0, 0, 0)]), cfg)[0])
 
     def test_quest_mode_ignores_combat_color_false_positive_above_twenty_percent(self):
         cfg = {"detection": {"hp_drop_window_seconds": 2.5, "minimum_hp_drop_ratio": 0.025, "minimum_cyan_pixels": 900, "minimum_hostile_magenta_pixels": 2500, "minimum_pvp_red_pixels": 500, "safe_zone_cyan_pixels": 150, "emergency_hp_ratio": 0.20}}

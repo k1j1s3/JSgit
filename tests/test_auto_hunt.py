@@ -43,6 +43,13 @@ class AutoHuntDetectionTest(unittest.TestCase):
             self.assertEqual([1155, 205], first["point"])
             self.assertIn("directly", first["label"])
 
+    def test_normal_recovery_route_never_toggles_auto(self):
+        config_path = Path(__file__).parents[1] / "config" / "auto_hunt.json"
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+        actions = config["devices"][0]["hunting_routes"][0]["actions"]
+        self.assertNotIn("ensure_auto", [action["type"] for action in actions])
+        self.assertNotIn([998, 548], [action.get("point") for action in actions])
+
     def test_recovery_runs_town_actions_before_hunting_route(self):
         cfg = {
             "return_actions": [{"type": "tap", "point": [1, 1]}],
@@ -89,6 +96,21 @@ class AutoHuntDetectionTest(unittest.TestCase):
 
         self.assertFalse(BOT.is_auto_active(inactive, [0, 0, 80, 90], 500))
         self.assertTrue(BOT.is_auto_active(active, [0, 0, 80, 90], 500))
+
+    def test_ensure_auto_does_not_tap_when_later_sample_is_active(self):
+        inactive = Image.new("RGB", (1280, 720), (40, 40, 40))
+        active = inactive.copy()
+        ImageDraw.Draw(active).rectangle((960, 500, 989, 529), fill=(220, 110, 20))
+        action = {
+            "type": "ensure_auto",
+            "point": [998, 548],
+            "sample_count": 3,
+            "sample_interval_seconds": 0,
+        }
+        logger = Mock()
+        with patch.object(BOT, "screenshot", side_effect=[inactive, active]), patch.object(BOT, "tap") as tap:
+            BOT.execute_actions("adb", "device", [action], logger)
+        tap.assert_not_called()
 
     def test_close_overlay_detection_requires_red_close_button(self):
         field = Image.new("RGB", (70, 70), (40, 40, 40))

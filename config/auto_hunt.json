@@ -122,8 +122,7 @@
             {"type": "tap", "point": [130, 385], "label": "select 03. dragon valley dungeon central entrance"},
             {"type": "wait", "seconds": 0.7},
             {"type": "tap", "point": [1060, 655], "label": "move to selected hunting field"},
-            {"type": "wait_for_gameplay", "timeout_seconds": 3.0, "initial_delay_seconds": 0.5, "hp_region": [88, 41, 319, 58], "label": "enable combat as soon as the field HUD appears"},
-            {"type": "ensure_auto", "point": [998, 548], "label": "keep AUTO enabled without toggling it off"}
+            {"type": "wait_for_gameplay", "timeout_seconds": 3.0, "initial_delay_seconds": 0.5, "hp_region": [88, 41, 319, 58], "label": "wait only; AUTO state persists through return and teleport"}
           ]
         }
       ]

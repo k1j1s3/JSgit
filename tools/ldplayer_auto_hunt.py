@@ -265,7 +265,19 @@ def execute_actions(adb: str, device: str, actions: list[dict], logger):
         elif kind == "ensure_auto":
             rect = action.get("region", [960, 500, 1040, 590])
             minimum = int(action.get("minimum_orange_pixels", 500))
-            active = is_auto_active(screenshot(adb, device), rect, minimum)
+            # The orange AUTO ring can be absent for a frame while the field HUD
+            # is still settling after teleport.  Treat any positive sample as
+            # active so an already-running AUTO mode is never toggled off.
+            sample_count = int(action.get("sample_count", 5))
+            sample_interval = float(action.get("sample_interval_seconds", 0.35))
+            samples = []
+            for index in range(sample_count):
+                samples.append(is_auto_active(screenshot(adb, device), rect, minimum))
+                if samples[-1]:
+                    break
+                if index + 1 < sample_count:
+                    time.sleep(sample_interval)
+            active = any(samples)
             logger.info("AUTO state active=%s: %s", active, action.get("label", ""))
             if not active:
                 x, y = action["point"]

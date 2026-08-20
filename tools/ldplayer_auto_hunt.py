@@ -267,6 +267,20 @@ def execute_actions(adb: str, device: str, actions: list[dict], logger):
             if open_:
                 x, y = action.get("point", [1235, 43])
                 tap(adb, device, x, y)
+        elif kind == "wait_for_gameplay":
+            timeout = float(action.get("timeout_seconds", 3.0))
+            deadline = time.monotonic() + timeout
+            time.sleep(float(action.get("initial_delay_seconds", 0.5)))
+            ready = False
+            while time.monotonic() < deadline:
+                frame = screenshot(adb, device)
+                hp = measure_hp(frame, action.get("hp_region", [88, 41, 319, 58]))
+                overlay = is_close_overlay_open(frame, action.get("close_region", [1200, 5, 1270, 75]))
+                if hp > 0.05 and not overlay:
+                    ready = True
+                    break
+                time.sleep(0.15)
+            logger.info("gameplay ready=%s within %.1fs: %s", ready, timeout, action.get("label", ""))
         elif kind == "wait":
             seconds = float(action["seconds"])
             logger.info("wait %.1fs: %s", seconds, action.get("label", ""))
@@ -289,8 +303,11 @@ def detect_threat(
 ) -> tuple[bool, str]:
     now = history[-1]
     not_safe = now.safe_zone_pixels < int(cfg["detection"]["safe_zone_cyan_pixels"])
-    emergency_hp = 0.05 < now.hp_ratio <= float(
-        cfg["detection"].get("emergency_hp_ratio", 0.20)
+    emergency_limit = float(cfg["detection"].get("emergency_hp_ratio", 0.20))
+    emergency_frames = int(cfg["detection"].get("emergency_confirm_frames", 2))
+    recent_emergency = list(history)[-emergency_frames:]
+    emergency_hp = len(recent_emergency) == emergency_frames and all(
+        0.0 < sample.hp_ratio <= emergency_limit for sample in recent_emergency
     )
     if emergency_hp and (not_safe or emergency_in_safe_zone):
         return True, f"emergency-low-hp hp={now.hp_ratio:.3f} safe={now.safe_zone_pixels}"
@@ -316,8 +333,10 @@ def detect_threat(
         f"cyan={cyan} hostile={hostile} pvp_red={pvp_red} "
         f"safe={now.safe_zone_pixels}"
     )
-    hp_signal = enough_drop and player_nearby and hostile_visible
-    pvp_ui_signal = pvp_visible and hostile_visible
+    # Ordinary monster packs also produce cyan/magenta combat pixels.  A HP
+    # drop is only treated as PvP when the dedicated PvP UI is visible too.
+    hp_signal = enough_drop and player_nearby and hostile_visible and pvp_visible
+    pvp_ui_signal = pvp_visible and hostile_visible and player_nearby
     return (hp_signal or pvp_ui_signal) and not_safe, reason
 
 
@@ -479,6 +498,13 @@ def world_boss_tick(
 def recover_and_resume(adb: str, device: str, device_cfg: dict, logger):
     """Return to town, finish mandatory town chores, then resume hunting."""
     execute_actions(adb, device, device_cfg["return_actions"], logger)
+    if "regions" in device_cfg:
+        frame = screenshot(adb, device)
+        safe = count_safe_zone_color(frame, device_cfg["regions"]["zone_label"])
+        minimum = int(device_cfg.get("safe_zone_cyan_pixels", 150))
+        if safe < minimum:
+            logger.error("return verification failed safe=%s minimum=%s; aborting follow-up clicks", safe, minimum)
+            return None
     execute_actions(adb, device, device_cfg.get("town_actions", []), logger)
     route = random.choice(device_cfg["hunting_routes"])
     logger.info("random hunting route selected: %s", route.get("name", ""))

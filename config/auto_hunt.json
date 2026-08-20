@@ -12,10 +12,11 @@
     "minimum_pvp_red_pixels": 500,
     "safe_zone_cyan_pixels": 150,
     "emergency_hp_ratio": 0.20,
+    "emergency_confirm_frames": 2,
     "cooldown_seconds": 2
   },
   "world_boss": {
-    "enabled": true,
+    "enabled": false,
     "schedule": ["14:00", "20:00", "21:00", "22:00", "23:00"],
     "schedule_before_seconds": 90,
     "schedule_after_seconds": 180,
@@ -114,7 +115,7 @@
             {"type": "tap", "point": [130, 385], "label": "select 03. dragon valley dungeon central entrance"},
             {"type": "wait", "seconds": 0.7},
             {"type": "tap", "point": [1060, 655], "label": "move to selected hunting field"},
-            {"type": "wait", "seconds": 12.0, "label": "wait for hunting-field load"},
+            {"type": "wait_for_gameplay", "timeout_seconds": 3.0, "initial_delay_seconds": 0.5, "hp_region": [88, 41, 319, 58], "label": "enable combat as soon as the field HUD appears"},
             {"type": "ensure_auto", "point": [998, 548], "label": "keep AUTO enabled without toggling it off"}
           ]
         }
@@ -126,7 +127,7 @@
       "inherits_from": "player-1",
       "actions_enabled": true,
       "world_boss": {
-        "enabled": true
+        "enabled": false
       },
       "regions": {
         "hp_bar": [88, 41, 319, 58],

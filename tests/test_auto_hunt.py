@@ -24,7 +24,7 @@ class AutoHuntDetectionTest(unittest.TestCase):
         test_device = BOT.resolve_device_config(config, config["devices"][1])
         self.assertEqual("emulator-5556", test_device["device"])
         self.assertTrue(test_device["actions_enabled"])
-        self.assertTrue(test_device["world_boss"]["enabled"])
+        self.assertFalse(test_device["world_boss"]["enabled"])
         self.assertEqual(config["devices"][0]["town_actions"], test_device["town_actions"])
         self.assertEqual(config["devices"][0]["hunting_routes"], test_device["hunting_routes"])
         self.assertEqual(1, len(test_device["hunting_routes"]))
@@ -115,12 +115,12 @@ class AutoHuntDetectionTest(unittest.TestCase):
         }
         history = deque(
             [
-                BOT.FrameState(1.0, 1.0, 60, 600, 0, 0),
-                BOT.FrameState(2.0, 0.90, 60, 600, 0, 0),
+                BOT.FrameState(1.0, 1.0, 60, 600, 600, 0),
+                BOT.FrameState(2.0, 0.90, 60, 600, 600, 0),
             ]
         )
         self.assertTrue(BOT.detect_threat(history, cfg)[0])
-        history[-1] = BOT.FrameState(2.0, 0.90, 5, 600, 0, 0)
+        history[-1] = BOT.FrameState(2.0, 0.90, 5, 600, 600, 0)
         self.assertFalse(BOT.detect_threat(history, cfg)[0])
 
     def test_safe_zone_suppresses_trigger(self):
@@ -192,7 +192,7 @@ class AutoHuntDetectionTest(unittest.TestCase):
                 "emergency_hp_ratio": 0.20,
             }
         }
-        history = deque([BOT.FrameState(1.0, 0.20, 0, 0, 0, 0)])
+        history = deque([BOT.FrameState(1.0, 0.20, 0, 0, 0, 0), BOT.FrameState(2.0, 0.20, 0, 0, 0, 0)])
         self.assertTrue(BOT.detect_threat(history, cfg)[0])
 
     def test_low_hp_does_not_trigger_in_safe_zone(self):
@@ -207,7 +207,7 @@ class AutoHuntDetectionTest(unittest.TestCase):
                 "emergency_hp_ratio": 0.20,
             }
         }
-        history = deque([BOT.FrameState(1.0, 0.20, 0, 0, 0, 200)])
+        history = deque([BOT.FrameState(1.0, 0.20, 0, 0, 0, 200), BOT.FrameState(2.0, 0.20, 0, 0, 0, 200)])
         self.assertFalse(BOT.detect_threat(history, cfg)[0])
 
     def test_monster_damage_above_twenty_percent_does_not_trigger(self):
@@ -225,6 +225,19 @@ class AutoHuntDetectionTest(unittest.TestCase):
         history = deque([BOT.FrameState(1.0, 0.21, 0, 0, 0, 0)])
         self.assertFalse(BOT.detect_threat(history, cfg)[0])
 
+    def test_already_below_five_percent_still_triggers_emergency_return(self):
+        cfg = {"detection": {"hp_drop_window_seconds": 2.5, "minimum_hp_drop_ratio": 0.025, "minimum_cyan_pixels": 900, "minimum_hostile_magenta_pixels": 2500, "minimum_pvp_red_pixels": 500, "safe_zone_cyan_pixels": 150, "emergency_hp_ratio": 0.20}}
+        history = deque([BOT.FrameState(1.0, 0.04, 0, 0, 0, 0), BOT.FrameState(2.0, 0.04, 0, 0, 0, 0)])
+        self.assertTrue(BOT.detect_threat(history, cfg)[0])
+
+    def test_monster_pack_colors_and_hp_drop_do_not_trigger_without_pvp_ui(self):
+        cfg = {"detection": {"hp_drop_window_seconds": 2.5, "minimum_hp_drop_ratio": 0.025, "minimum_cyan_pixels": 900, "minimum_hostile_magenta_pixels": 2500, "minimum_pvp_red_pixels": 500, "safe_zone_cyan_pixels": 150, "emergency_hp_ratio": 0.20}}
+        history = deque([
+            BOT.FrameState(1.0, 0.991, 7079, 2698, 3, 0),
+            BOT.FrameState(2.0, 0.961, 7079, 2698, 3, 0),
+        ])
+        self.assertFalse(BOT.detect_threat(history, cfg)[0])
+
     def test_quest_mode_ignores_combat_color_false_positive_above_twenty_percent(self):
         cfg = {"detection": {"hp_drop_window_seconds": 2.5, "minimum_hp_drop_ratio": 0.025, "minimum_cyan_pixels": 900, "minimum_hostile_magenta_pixels": 2500, "minimum_pvp_red_pixels": 500, "safe_zone_cyan_pixels": 150, "emergency_hp_ratio": 0.20}}
         history = deque([BOT.FrameState(1.0, 0.80, 9000, 12000, 900, 0), BOT.FrameState(2.0, 0.70, 9000, 12000, 900, 0)])
@@ -232,7 +245,7 @@ class AutoHuntDetectionTest(unittest.TestCase):
 
     def test_quest_mode_still_returns_at_twenty_percent_hp(self):
         cfg = {"detection": {"hp_drop_window_seconds": 2.5, "minimum_hp_drop_ratio": 0.025, "minimum_cyan_pixels": 900, "minimum_hostile_magenta_pixels": 2500, "minimum_pvp_red_pixels": 500, "safe_zone_cyan_pixels": 150, "emergency_hp_ratio": 0.20}}
-        history = deque([BOT.FrameState(1.0, 0.20, 0, 0, 0, 0)])
+        history = deque([BOT.FrameState(1.0, 0.20, 0, 0, 0, 0), BOT.FrameState(2.0, 0.20, 0, 0, 0, 0)])
         self.assertTrue(BOT.detect_threat(history, cfg, emergency_only=True)[0])
 
     def test_world_boss_low_hp_escapes_even_when_arena_says_safe_zone(self):
@@ -247,7 +260,7 @@ class AutoHuntDetectionTest(unittest.TestCase):
                 "emergency_hp_ratio": 0.20,
             }
         }
-        history = deque([BOT.FrameState(1.0, 0.20, 0, 0, 0, 200)])
+        history = deque([BOT.FrameState(1.0, 0.20, 0, 0, 0, 200), BOT.FrameState(2.0, 0.20, 0, 0, 0, 200)])
         self.assertTrue(BOT.detect_threat(history, cfg, emergency_in_safe_zone=True)[0])
 
     def test_world_boss_schedule_window(self):

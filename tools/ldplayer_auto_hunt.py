@@ -232,6 +232,15 @@ def is_close_overlay_open(image: Image.Image, rect: list[int], minimum_red_pixel
     return red_pixels >= minimum_red_pixels
 
 
+def is_main_menu_open(image: Image.Image, rect: list[int], minimum_panel_pixels: int = 10000) -> bool:
+    """Detect the large navy main-menu panel, ignoring the red notification dot."""
+    panel_pixels = sum(
+        1 for r, g, b in crop_pixels(image, rect)
+        if b >= 25 and b >= r * 1.25 and b >= g * 1.12
+    )
+    return panel_pixels >= minimum_panel_pixels
+
+
 def reference_similarity(image: Image.Image, reference: Image.Image, regions: list[list[int]]) -> float:
     scores = []
     for rect in regions:
@@ -304,6 +313,14 @@ def execute_actions(adb: str, device: str, actions: list[dict], logger):
             rect = action.get("region", [1200, 5, 1270, 75])
             open_ = is_close_overlay_open(screenshot(adb, device), rect)
             logger.info("close overlay open=%s: %s", open_, action.get("label", ""))
+            if open_:
+                x, y = action.get("point", [1235, 43])
+                tap(adb, device, x, y)
+        elif kind == "close_main_menu_if_open":
+            rect = action.get("region", [900, 80, 1270, 680])
+            minimum = int(action.get("minimum_panel_pixels", 10000))
+            open_ = is_main_menu_open(screenshot(adb, device), rect, minimum)
+            logger.info("main menu open=%s: %s", open_, action.get("label", ""))
             if open_:
                 x, y = action.get("point", [1235, 43])
                 tap(adb, device, x, y)

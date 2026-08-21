@@ -76,6 +76,7 @@
         "zone_label": [1070, 285, 1265, 345]
       },
       "return_actions": [
+        {"type": "close_main_menu_if_open", "point": [1235, 43], "label": "close actual main menu before return-scroll click"},
         {"type": "tap", "point": [1232, 635], "label": "verified return-scroll hotbar slot"},
         {"type": "ensure_auto_off", "point": [998, 548], "sample_count": 4, "sample_interval_seconds": 0.15, "label": "disable AUTO immediately after return command"},
         {"type": "wait", "seconds": 5.0, "label": "wait for town load"}
@@ -123,8 +124,6 @@
         {"type": "tap", "point": [750, 590], "label": "confirm automatic purchase"},
         {"type": "wait", "seconds": 1.5, "label": "wait for purchase completion"},
         {"type": "tap", "point": [1235, 43], "label": "close shop UI"},
-        {"type": "wait", "seconds": 0.8},
-        {"type": "close_overlay_if_open", "point": [1235, 43], "label": "close menu overlay before opening the world map"},
         {"type": "wait", "seconds": 0.8}
       ],
       "hunting_routes": [

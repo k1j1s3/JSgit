@@ -57,10 +57,11 @@ class AutoHuntDetectionTest(unittest.TestCase):
         config_path = Path(__file__).parents[1] / "config" / "auto_hunt.json"
         config = json.loads(config_path.read_text(encoding="utf-8"))
         actions = config["devices"][0]["return_actions"]
-        self.assertEqual("tap", actions[0]["type"])
-        self.assertEqual([1232, 635], actions[0]["point"])
-        self.assertEqual("ensure_auto_off", actions[1]["type"])
-        self.assertEqual([998, 548], actions[1]["point"])
+        self.assertEqual("close_main_menu_if_open", actions[0]["type"])
+        self.assertEqual("tap", actions[1]["type"])
+        self.assertEqual([1232, 635], actions[1]["point"])
+        self.assertEqual("ensure_auto_off", actions[2]["type"])
+        self.assertEqual([998, 548], actions[2]["point"])
 
     def test_fixed_town_route_selects_giran_before_npc_actions(self):
         config_path = Path(__file__).parents[1] / "config" / "auto_hunt.json"
@@ -107,6 +108,7 @@ class AutoHuntDetectionTest(unittest.TestCase):
         )
         self.assertLess(potion_index, max_index)
         self.assertLess(max_index, buy_index)
+        self.assertNotIn("close_overlay_if_open", [action["type"] for action in actions])
 
     def test_recovery_runs_town_actions_before_hunting_route(self):
         cfg = {
@@ -210,6 +212,13 @@ class AutoHuntDetectionTest(unittest.TestCase):
         ImageDraw.Draw(menu).rectangle((10, 10, 30, 30), fill=(180, 35, 35))
         self.assertFalse(BOT.is_close_overlay_open(field, [0, 0, 70, 70]))
         self.assertTrue(BOT.is_close_overlay_open(menu, [0, 0, 70, 70]))
+
+    def test_main_menu_detection_uses_panel_not_red_notification_dot(self):
+        closed = Image.new("RGB", (400, 600), (80, 70, 55))
+        ImageDraw.Draw(closed).ellipse((360, 0, 380, 20), fill=(220, 20, 20))
+        opened = Image.new("RGB", (400, 600), (10, 28, 40))
+        self.assertFalse(BOT.is_main_menu_open(closed, [0, 0, 400, 600]))
+        self.assertTrue(BOT.is_main_menu_open(opened, [0, 0, 400, 600]))
 
     def test_reference_verification_distinguishes_shop_from_warehouse(self):
         shop = Image.open(BOT.ROOT / "data/auto-hunt/town-general-merchant.png").convert("RGB")

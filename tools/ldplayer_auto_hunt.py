@@ -324,6 +324,10 @@ def execute_actions(adb: str, device: str, actions: list[dict], logger):
             if open_:
                 x, y = action.get("point", [1235, 43])
                 tap(adb, device, x, y)
+                wait_after = float(action.get("wait_after_seconds", 0.0))
+                if wait_after > 0:
+                    logger.info("wait %.2fs for main menu close animation", wait_after)
+                    time.sleep(wait_after)
         elif kind == "wait_for_gameplay":
             timeout = float(action.get("timeout_seconds", 3.0))
             deadline = time.monotonic() + timeout
@@ -601,16 +605,35 @@ def world_boss_tick(
     return runtime.state
 
 
+def return_to_town(adb: str, device: str, device_cfg: dict, logger) -> bool:
+    """Issue return and retry quickly until the safe-zone label is visible."""
+    attempts = int(device_cfg.get("return_retry_attempts", 3))
+    timeout = float(device_cfg.get("return_verify_timeout_seconds", 2.5))
+    interval = float(device_cfg.get("return_verify_interval_seconds", 0.2))
+    minimum = int(device_cfg.get("safe_zone_cyan_pixels", 150))
+    for attempt in range(1, attempts + 1):
+        logger.warning("return attempt %s/%s", attempt, attempts)
+        execute_actions(adb, device, device_cfg["return_actions"], logger)
+        deadline = time.monotonic() + timeout
+        safe = 0
+        while time.monotonic() < deadline:
+            frame = screenshot(adb, device)
+            safe = count_safe_zone_color(frame, device_cfg["regions"]["zone_label"])
+            if safe >= minimum:
+                logger.info("return verified safe=%s minimum=%s attempt=%s", safe, minimum, attempt)
+                return True
+            time.sleep(interval)
+        logger.error("return attempt %s failed safe=%s minimum=%s", attempt, safe, minimum)
+    return False
+
+
 def recover_and_resume(adb: str, device: str, device_cfg: dict, logger):
     """Return to town, finish mandatory town chores, then resume hunting."""
-    execute_actions(adb, device, device_cfg["return_actions"], logger)
-    if "regions" in device_cfg:
-        frame = screenshot(adb, device)
-        safe = count_safe_zone_color(frame, device_cfg["regions"]["zone_label"])
-        minimum = int(device_cfg.get("safe_zone_cyan_pixels", 150))
-        if safe < minimum:
-            logger.error("return verification failed safe=%s minimum=%s; aborting follow-up clicks", safe, minimum)
-            return None
+    if "regions" in device_cfg and not return_to_town(adb, device, device_cfg, logger):
+        logger.critical("all return attempts failed; follow-up clicks aborted")
+        return None
+    if "regions" not in device_cfg:
+        execute_actions(adb, device, device_cfg["return_actions"], logger)
     fixed_town_actions = device_cfg.get("fixed_town_actions", [])
     if fixed_town_actions and not execute_actions(adb, device, fixed_town_actions, logger):
         logger.error("fixed-town routing failed; town chores aborted")
@@ -647,7 +670,11 @@ def recover_and_resume(adb: str, device: str, device_cfg: dict, logger):
 
 def recover_quest_to_town(adb: str, device: str, device_cfg: dict, logger):
     """Quest mode must never choose a normal hunting route after escape."""
-    execute_actions(adb, device, device_cfg["return_actions"], logger)
+    if "regions" in device_cfg and not return_to_town(adb, device, device_cfg, logger):
+        logger.critical("all quest return attempts failed; follow-up clicks aborted")
+        return None
+    if "regions" not in device_cfg:
+        execute_actions(adb, device, device_cfg["return_actions"], logger)
     fixed_town_actions = device_cfg.get("fixed_town_actions", [])
     if fixed_town_actions:
         execute_actions(adb, device, fixed_town_actions, logger)

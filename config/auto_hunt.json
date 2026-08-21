@@ -76,11 +76,14 @@
         "zone_label": [1070, 285, 1265, 345]
       },
       "return_actions": [
-        {"type": "close_main_menu_if_open", "point": [1235, 43], "label": "close actual main menu before return-scroll click"},
+        {"type": "close_main_menu_if_open", "point": [1235, 43], "wait_after_seconds": 0.5, "label": "close actual main menu and wait for animation before return-scroll click"},
         {"type": "tap", "point": [1232, 635], "label": "verified return-scroll hotbar slot"},
         {"type": "ensure_auto_off", "point": [998, 548], "sample_count": 4, "sample_interval_seconds": 0.15, "label": "disable AUTO immediately after return command"},
-        {"type": "wait", "seconds": 5.0, "label": "wait for town load"}
+        {"type": "wait", "seconds": 0.8, "label": "brief initial wait for town load"}
       ],
+      "return_retry_attempts": 3,
+      "return_verify_timeout_seconds": 2.5,
+      "return_verify_interval_seconds": 0.2,
       "fixed_town_actions": [
         {"type": "ensure_auto_off", "point": [998, 548], "label": "disable persistent AUTO before fixed-town routing"},
         {"type": "tap", "point": [1155, 205], "label": "open world map from returned town"},

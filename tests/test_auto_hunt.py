@@ -63,6 +63,30 @@ class AutoHuntDetectionTest(unittest.TestCase):
         self.assertEqual("ensure_auto_off", actions[2]["type"])
         self.assertEqual([998, 548], actions[2]["point"])
 
+    def test_return_waits_for_menu_animation_and_retries_quickly(self):
+        config_path = Path(__file__).parents[1] / "config" / "auto_hunt.json"
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+        device = config["devices"][0]
+        self.assertGreaterEqual(device["return_actions"][0]["wait_after_seconds"], 0.5)
+        self.assertLessEqual(device["return_actions"][-1]["seconds"], 1.0)
+        self.assertGreaterEqual(device["return_retry_attempts"], 3)
+
+    def test_return_to_town_retries_after_failed_verification(self):
+        device = {
+            "return_actions": [{"type": "tap", "point": [1, 2]}],
+            "regions": {"zone_label": [0, 0, 1, 1]},
+            "safe_zone_cyan_pixels": 100,
+            "return_retry_attempts": 3,
+            "return_verify_timeout_seconds": 0.0,
+        }
+        with (
+            patch.object(BOT, "execute_actions", return_value=True) as execute,
+            patch.object(BOT, "screenshot"),
+            patch.object(BOT, "count_safe_zone_color", return_value=0),
+        ):
+            self.assertFalse(BOT.return_to_town("adb", "device", device, Mock()))
+        self.assertEqual(3, execute.call_count)
+
     def test_fixed_town_route_selects_giran_before_npc_actions(self):
         config_path = Path(__file__).parents[1] / "config" / "auto_hunt.json"
         config = json.loads(config_path.read_text(encoding="utf-8"))

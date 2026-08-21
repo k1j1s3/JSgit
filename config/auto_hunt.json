@@ -85,6 +85,8 @@
         {"type": "ensure_auto_off", "point": [998, 548], "label": "disable persistent AUTO before fixed-town routing"},
         {"type": "tap", "point": [1155, 205], "label": "open world map from returned town"},
         {"type": "wait", "seconds": 1.0},
+        {"type": "tap", "point": [435, 105], "label": "force Aden continent before opening favorites"},
+        {"type": "wait", "seconds": 0.7},
         {"type": "tap", "point": [130, 655], "label": "open fixed five-item favorites list"},
         {"type": "wait", "seconds": 0.7},
         {"type": "tap", "point": [130, 535], "label": "select fifth favorite 26. Giran village"},

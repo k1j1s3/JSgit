@@ -67,6 +67,9 @@ class AutoHuntDetectionTest(unittest.TestCase):
         config_path = Path(__file__).parents[1] / "config" / "auto_hunt.json"
         config = json.loads(config_path.read_text(encoding="utf-8"))
         actions = config["devices"][0]["fixed_town_actions"]
+        aden_index = next(index for index, action in enumerate(actions) if action.get("point") == [435, 105])
+        favorites_index = next(index for index, action in enumerate(actions) if action.get("point") == [130, 655])
+        self.assertLess(aden_index, favorites_index)
         self.assertIn([130, 655], [action.get("point") for action in actions])
         self.assertIn([130, 535], [action.get("point") for action in actions])
         self.assertNotIn("swipe", [action["type"] for action in actions])

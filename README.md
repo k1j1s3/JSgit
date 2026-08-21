@@ -1,6 +1,31 @@
-# LineageR Local Server
+# Lineage Automation & Local Server Research
 
-> 프로젝트 방향 전환: 모바일 호환성 연구는 보존 상태이며, 현재 주 개발 경로는 공개 GPL-2.0 `l1j-en/classic` 기반 리니지 1 PC 로컬 서버입니다. 구축 결과와 실행법은 [L1J_SETUP_KO.md](docs/L1J_SETUP_KO.md)를 참고하세요.
+## 현재 주 개발: LDPlayer 자동사냥 안전 도구
+
+현재 실제 운영 경로는 두 대의 LDPlayer에서 동작하는 화면 기반 자동사냥 및
+생존 복구 도구입니다. ADB 화면 캡처와 터치만 사용하며 게임 프로세스 주입이나
+메모리 읽기는 하지 않습니다.
+
+- 메인 LDPlayer: `emulator-5554`
+- LDPlayer-1: `emulator-5556`
+- PK 또는 저체력 감지 후 즉시 귀환 및 AUTO 해제
+- 지도 즐겨찾기 5번째 `26. 기란 마을`로 이동
+- 통합 창고 자동 보관 후 모두 맡기기
+- 잡화상에서 주홍 물약을 `Max 49.9%` 무게까지 구매
+- 축복받은 순간이동 주문서의 첫째·둘째 저장 장소 교대 사냥
+- 두 장치의 로그와 교대 순번을 독립 저장
+
+최신 운영법과 좌표 전제, 문제 해결 방법은
+[AUTO_HUNT_STATUS_KO.md](docs/AUTO_HUNT_STATUS_KO.md)를 참고하세요.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File tools\auto-hunt-start.ps1
+powershell -ExecutionPolicy Bypass -File tools\auto-hunt-stop.ps1
+```
+
+> 이전에 진행한 공개 GPL-2.0 `l1j-en/classic` 기반 리니지 1 PC 로컬 서버
+> 연구도 함께 보존합니다. 구축 결과와 실행법은
+> [L1J_SETUP_KO.md](docs/L1J_SETUP_KO.md)를 참고하세요.
 
 개인 환경에서 프로토콜 호환성을 연구하기 위한 Python 기반 로컬 서버 프로토타입입니다.
 

@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-08-21 — Dual-LDPlayer auto-hunt recovery
+
+- Enabled independent monitoring for `emulator-5554` and `emulator-5556`.
+- Added confirmed PK and critical/low-HP escape handling.
+- Disabled AUTO immediately after return and restored it only at the field.
+- Standardized recovery through the fifth map favorite, Giran village.
+- Added verified warehouse auto-storage and deposit-all flow.
+- Replaced shop auto-order with orange-potion purchase at Max 49.9% weight.
+- Added persistent round-robin blessed-teleport hunting routes per device.
+- Prevented red notification dots from opening the top-right main menu.
+
 ## World boss automation
 
 - Detect the scheduled red world-boss HUD icon at 14:00, 20:00, 21:00, 22:00, and 23:00.

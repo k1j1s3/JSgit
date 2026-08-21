@@ -397,6 +397,17 @@ def detect_threat(
     prior = [sample for sample in history if now.timestamp - sample.timestamp <= window]
     highest = max(sample.hp_ratio for sample in prior)
     hp_drop = highest - now.hp_ratio
+    rapid_drop_limit = float(cfg["detection"].get("rapid_drop_ratio", 1.0))
+    rapid_drop_ceiling = float(cfg["detection"].get("rapid_drop_hp_ceiling", 0.0))
+    rapid_drop = (
+        0.0 < now.hp_ratio <= rapid_drop_ceiling
+        and hp_drop >= rapid_drop_limit
+    )
+    if rapid_drop and not_safe:
+        return True, (
+            f"rapid-hp-drop hp={now.hp_ratio:.3f} drop={hp_drop:.3f} "
+            f"safe={now.safe_zone_pixels}"
+        )
     cyan = now.cyan_pixels
     hostile = now.hostile_magenta_pixels
     pvp_red = now.pvp_red_pixels

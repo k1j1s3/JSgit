@@ -71,6 +71,25 @@ class AutoHuntDetectionTest(unittest.TestCase):
         self.assertLessEqual(device["return_actions"][-1]["seconds"], 1.0)
         self.assertGreaterEqual(device["return_retry_attempts"], 3)
 
+    def test_survival_profile_returns_before_hp_becomes_critical(self):
+        config_path = Path(__file__).parents[1] / "config" / "auto_hunt.json"
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+        detection = config["detection"]
+        self.assertGreaterEqual(detection["critical_hp_ratio"], 0.40)
+        self.assertGreaterEqual(detection["emergency_hp_ratio"], 0.55)
+        self.assertLessEqual(config["poll_interval_seconds"], 0.4)
+
+    def test_rapid_hp_drop_triggers_return_without_pvp_colors(self):
+        config_path = Path(__file__).parents[1] / "config" / "auto_hunt.json"
+        cfg = json.loads(config_path.read_text(encoding="utf-8"))
+        history = deque([
+            BOT.FrameState(1.0, 0.95, 0, 0, 0, 0),
+            BOT.FrameState(1.4, 0.60, 0, 0, 0, 0),
+        ])
+        threat, reason = BOT.detect_threat(history, cfg)
+        self.assertTrue(threat)
+        self.assertIn("rapid-hp-drop", reason)
+
     def test_return_to_town_retries_after_failed_verification(self):
         device = {
             "return_actions": [{"type": "tap", "point": [1, 2]}],

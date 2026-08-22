@@ -18,7 +18,7 @@
     "rapid_drop_hp_ceiling": 0.70,
     "pvp_detection_enabled": true,
     "strong_pvp_red_pixels": 2000,
-    "strong_pvp_confirm_frames": 2,
+    "strong_pvp_confirm_frames": 1,
     "legacy_pvp_detection_enabled": false,
     "cooldown_seconds": 2
   },

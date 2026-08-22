@@ -78,6 +78,7 @@ class AutoHuntDetectionTest(unittest.TestCase):
         self.assertGreaterEqual(detection["critical_hp_ratio"], 0.40)
         self.assertGreaterEqual(detection["emergency_hp_ratio"], 0.55)
         self.assertLessEqual(config["poll_interval_seconds"], 0.4)
+        self.assertEqual(1, detection["strong_pvp_confirm_frames"])
 
     def test_rapid_hp_drop_triggers_return_without_pvp_colors(self):
         config_path = Path(__file__).parents[1] / "config" / "auto_hunt.json"

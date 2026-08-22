@@ -76,17 +76,19 @@ def crop_pixels(image: Image.Image, rect: list[int]):
 
 
 def measure_hp(image: Image.Image, rect: list[int]) -> float:
-    """Estimate filled red HP-bar width, tolerating text drawn over the bar."""
+    """Estimate filled HP width for the normal red or status-effect green bar."""
     region = image.crop(tuple(rect))
     width, height = region.size
     occupied = []
     for x in range(width):
-        red = 0
+        filled_pixels = 0
         for y in range(height):
             r, g, b = region.getpixel((x, y))
-            if r >= 135 and r >= g * 1.45 and r >= b * 1.35:
-                red += 1
-        occupied.append(red >= max(1, height // 5))
+            red_hp = r >= 135 and r >= g * 1.45 and r >= b * 1.35
+            green_hp = g >= 105 and g >= r * 1.25 and g >= b * 1.15
+            if red_hp or green_hp:
+                filled_pixels += 1
+        occupied.append(filled_pixels >= max(1, height // 5))
     # Small gaps are normally caused by the white HP text.
     last = -1
     gap = 0

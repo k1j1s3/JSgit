@@ -699,6 +699,22 @@ class AutoHuntDetectionTest(unittest.TestCase):
             [call.args for call in tapped.call_args_list],
         )
 
+    def test_world_boss_entry_reposition_moves_once_toward_ten_oclock(self):
+        cfg = {
+            "entry_move_start": [117, 546],
+            "entry_move_end": [82, 511],
+            "entry_move_duration_ms": 700,
+            "entry_move_settle_seconds": 0,
+        }
+        with patch.object(BOT, "swipe") as moved:
+            BOT.move_toward_world_boss("adb", "device", cfg, Mock())
+        moved.assert_called_once_with("adb", "device", [117, 546], [82, 511], 700)
+
+    def test_test_device_world_boss_uses_real_attack_button_center(self):
+        config = json.loads((BOT.ROOT / "config" / "auto_hunt.json").read_text(encoding="utf-8"))
+        device = BOT.resolve_device_config(config, config["devices"][1])
+        self.assertEqual([1097, 548], device["world_boss"]["attack_point"])
+
     def test_loot_motion_interleaves_pickup_and_short_move(self):
         device = {
             "pickup_point": [1165, 418],

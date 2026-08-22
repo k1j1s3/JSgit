@@ -551,6 +551,18 @@ def radar_select_first_target(adb: str, device: str, device_boss: dict, logger):
     tap(adb, device, *device_boss["radar_first_target_point"])
 
 
+def move_toward_world_boss(adb: str, device: str, device_boss: dict, logger):
+    """Move once from the lower entry spawn so the boss enters radar range."""
+    start = device_boss.get("entry_move_start")
+    end = device_boss.get("entry_move_end")
+    if not start or not end:
+        return
+    duration_ms = int(device_boss.get("entry_move_duration_ms", 700))
+    logger.info("world boss entry reposition toward 10 o'clock duration_ms=%s", duration_ms)
+    swipe(adb, device, start, end, duration_ms)
+    time.sleep(float(device_boss.get("entry_move_settle_seconds", 0.8)))
+
+
 def loot_motion_cycle(adb: str, device: str, device_boss: dict, cfg: dict, runtime: WorldBossRuntime):
     """Continuously pick up while making a short collision-resistant 8-way move."""
     pickup = device_boss["pickup_point"]
@@ -644,8 +656,9 @@ def world_boss_tick(
                 burst_tap(adb, device, device_boss["dragon_pearl_point"], 1, 0.25)
             runtime.last_action = monotonic_now
         if elapsed >= float(cfg["attack_delay_seconds"]):
-            logger.info("world boss radar target row 1 acquisition and AUTO")
+            logger.info("world boss reposition, radar target row 1 acquisition and AUTO")
             if actions_enabled:
+                move_toward_world_boss(adb, device, device_boss, logger)
                 radar_select_first_target(adb, device, device_boss, logger)
                 tap(adb, device, *device_boss["attack_point"])
                 active = is_auto_active(
@@ -910,8 +923,11 @@ def device_loop(global_cfg: dict, device_cfg: dict, once: bool = False):
                 else:
                     recover_and_resume(adb, device, device_cfg, logger)
             world_boss.state = "idle"
-            world_boss.suppress_until = now + float(
-                global_cfg.get("world_boss", {}).get("completion_cooldown_seconds", 3600)
+            # A normal HP/PK recovery is not a completed world boss. Resume
+            # icon detection almost immediately so an imminent raid is not
+            # skipped for the full completion cooldown.
+            world_boss.suppress_until = time.monotonic() + float(
+                global_cfg.get("world_boss", {}).get("threat_recovery_cooldown_seconds", 5)
             )
             cooldown_until = now + float(global_cfg["detection"]["cooldown_seconds"])
             history.clear()

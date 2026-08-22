@@ -62,6 +62,7 @@
     "minimum_loot_seconds": 5.0,
     "loot_empty_confirm_frames": 4,
     "loot_duration_seconds": 45.0,
+    "threat_recovery_cooldown_seconds": 5,
     "completion_cooldown_seconds": 3600
   },
   "devices": [
@@ -78,7 +79,7 @@
         "radar_point": [28, 538],
         "radar_first_target_point": [105, 230],
         "radar_wait_seconds": 0.35,
-        "attack_point": [1165, 548],
+        "attack_point": [1097, 548],
         "auto_point": [998, 548],
         "auto_region": [960, 500, 1040, 590],
         "minimum_auto_orange_pixels": 500,
@@ -197,7 +198,11 @@
         {"type": "close_overlay_if_open", "region": [330, 80, 385, 135], "point": [359, 111], "label": "close accidental friend panel before routing"}
       ],
       "world_boss": {
-        "enabled": true
+        "enabled": true,
+        "entry_move_start": [117, 546],
+        "entry_move_end": [82, 511],
+        "entry_move_duration_ms": 700,
+        "entry_move_settle_seconds": 0.8
       },
       "regions": {
         "hp_bar": [88, 41, 319, 58],

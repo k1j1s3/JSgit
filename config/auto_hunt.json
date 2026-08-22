@@ -111,7 +111,7 @@
       "death_restart_button_region": [555, 547, 725, 591],
       "minimum_death_button_blue_pixels": 4000,
       "minimum_death_panel_brown_pixels": 100000,
-      "death_restart_point": [640, 570],
+      "death_restart_point": [727, 569],
       "death_restart_load_seconds": 5.0,
       "death_recovery_hp_ratio": 0.90,
       "death_recovery_timeout_seconds": 180,
@@ -203,7 +203,7 @@
         {"type": "close_overlay_if_open", "region": [330, 80, 385, 135], "point": [359, 111], "label": "close accidental friend panel before routing"}
       ],
       "world_boss": {
-        "enabled": true,
+        "enabled": false,
         "entry_move_start": [117, 546],
         "entry_move_end": [82, 511],
         "entry_move_duration_ms": 700,

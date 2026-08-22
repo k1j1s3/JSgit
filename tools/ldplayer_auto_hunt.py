@@ -1000,7 +1000,11 @@ def device_loop(global_cfg: dict, device_cfg: dict, once: bool = False):
         completed_slot=str(boss_session.get("slot", "")),
         entered_at_wall=float(boss_session.get("entered_at", 0.0) or 0.0),
     )
-    if boss_session.get("phase") == "arena":
+    boss_enabled = (
+        global_cfg.get("world_boss", {}).get("enabled", False)
+        and device_cfg.get("world_boss", {}).get("enabled", False)
+    )
+    if boss_enabled and boss_session.get("phase") == "arena":
         world_boss.state = "combat"
         world_boss.state_since = time.monotonic()
         world_boss.last_action = world_boss.state_since

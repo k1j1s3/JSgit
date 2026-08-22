@@ -25,7 +25,7 @@ class AutoHuntDetectionTest(unittest.TestCase):
         test_device = BOT.resolve_device_config(config, config["devices"][1])
         self.assertEqual("emulator-5556", test_device["device"])
         self.assertTrue(test_device["actions_enabled"])
-        self.assertTrue(test_device["world_boss"]["enabled"])
+        self.assertFalse(test_device["world_boss"]["enabled"])
         self.assertFalse(config["world_boss"]["observe_only"])
         self.assertEqual([170, 330], test_device["world_boss"]["entry_point"])
         self.assertEqual(config["devices"][0]["town_actions"], test_device["town_actions"])

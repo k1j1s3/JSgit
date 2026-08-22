@@ -645,10 +645,12 @@ class AutoHuntDetectionTest(unittest.TestCase):
         global_cfg = {"dry_run": False, "world_boss": config["world_boss"]}
         device_cfg = {
             "actions_enabled": True,
+            "safe_zone_cyan_pixels": 100,
+            "regions": {"zone_label": [0, 0, 20, 20]},
             "world_boss": {"enabled": True, "entry_point": [170, 330]},
         }
         runtime = BOT.WorldBossRuntime(
-            state="menu", state_since=0.0, completed_slot="2026-08-22T20:00"
+            state="menu", state_since=0.0, pending_slot="2026-08-22T20:00"
         )
         with (
             patch.object(BOT, "screenshot", return_value=Image.new("RGB", (1280, 720))),
@@ -660,8 +662,21 @@ class AutoHuntDetectionTest(unittest.TestCase):
                 Image.new("RGB", (1280, 720)), 2.0, datetime(2026, 8, 22, 20, 0),
                 "adb", "device", global_cfg, device_cfg, runtime, Mock(),
             )
-        self.assertEqual("arena_wait", state)
+        self.assertEqual("entry_verify", state)
         tapped.assert_called_once_with("adb", "device", 170, 330)
+        marker.assert_not_called()
+
+        arena = Image.new("RGB", (1280, 720), "black")
+        ImageDraw.Draw(arena).rectangle((0, 0, 19, 19), fill=(20, 180, 220))
+        with (
+            patch.object(BOT, "world_boss_menu_visible", return_value=False),
+            patch.object(BOT, "save_world_boss_marker") as marker,
+        ):
+            state = BOT.world_boss_tick(
+                arena, 3.0, datetime(2026, 8, 22, 20, 0),
+                "adb", "device", global_cfg, device_cfg, runtime, Mock(),
+            )
+        self.assertEqual("arena_wait", state)
         marker.assert_called_once_with("device", "2026-08-22T20:00", "arena", ANY)
 
     def test_world_boss_observe_only_saves_candidate_without_clicking(self):

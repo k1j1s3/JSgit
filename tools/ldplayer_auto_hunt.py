@@ -52,6 +52,7 @@ class WorldBossRuntime:
     loot_empty_frames: int = 0
     motion_index: int = 0
     entered_at_wall: float = 0.0
+    pending_slot: str = ""
 
 
 def run_adb(adb: str, device: str, *args: str, binary: bool = False):
@@ -667,7 +668,7 @@ def world_boss_tick(
                 return runtime.state
             if actions_enabled:
                 tap(adb, device, *device_boss["icon_point"])
-            runtime.completed_slot = slot
+            runtime.pending_slot = slot
             runtime.state = "menu"
             runtime.state_since = monotonic_now
             runtime.last_action = monotonic_now
@@ -678,11 +679,7 @@ def world_boss_tick(
             logger.info("verified world boss menu; select fixed first boss card")
             if actions_enabled:
                 tap(adb, device, *device_boss["entry_point"])
-                runtime.entered_at_wall = time.time()
-                save_world_boss_marker(
-                    device, runtime.completed_slot, "arena", runtime.entered_at_wall
-                )
-            runtime.state = "arena_wait"
+            runtime.state = "entry_verify"
             runtime.state_since = monotonic_now
             runtime.last_action = monotonic_now
         elif elapsed >= float(cfg.get("menu_verify_timeout_seconds", 5.0)):
@@ -690,8 +687,32 @@ def world_boss_tick(
             if actions_enabled:
                 run_adb(adb, device, "shell", "input", "keyevent", "4")
             runtime.state = "idle"
+            runtime.pending_slot = ""
             runtime.suppress_until = monotonic_now + float(cfg.get("menu_failure_cooldown_seconds", 60))
             runtime.icon_frames = 0
+    elif runtime.state == "entry_verify":
+        safe_pixels = count_safe_zone_color(image, device_cfg["regions"]["zone_label"])
+        still_menu = world_boss_menu_visible(image, cfg)
+        if (
+            not still_menu
+            and safe_pixels >= int(device_cfg.get("safe_zone_cyan_pixels", 150))
+        ):
+            runtime.completed_slot = runtime.pending_slot
+            runtime.entered_at_wall = time.time()
+            save_world_boss_marker(
+                device, runtime.completed_slot, "arena", runtime.entered_at_wall
+            )
+            logger.info("world boss arena entry verified safe_pixels=%s", safe_pixels)
+            runtime.state = "arena_wait"
+            runtime.state_since = monotonic_now
+            runtime.last_action = monotonic_now
+        elif elapsed >= float(cfg.get("arena_verify_timeout_seconds", 8.0)):
+            logger.error("world boss arena entry verification failed; radar remains disabled")
+            if actions_enabled:
+                run_adb(adb, device, "shell", "input", "keyevent", "4")
+            runtime.state = "idle"
+            runtime.pending_slot = ""
+            runtime.suppress_until = monotonic_now + float(cfg.get("entry_failure_cooldown_seconds", 10))
     elif runtime.state == "arena_wait":
         if elapsed >= float(cfg["buff_delay_seconds"]) and runtime.last_action == runtime.state_since:
             logger.info("world boss buffs: Immune to Harm then Dragon Pearl")

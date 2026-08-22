@@ -57,6 +57,7 @@ class WorldBossRuntime:
     spawn_icon_missing_frames: int = 0
     spawn_disappeared_at: float = 0.0
     entry_repositioned: bool = False
+    spawn_buffs_used: bool = False
 
 
 def run_adb(adb: str, device: str, *args: str, binary: bool = False):
@@ -519,6 +520,7 @@ def world_boss_schedule_active(now: datetime, cfg: dict) -> bool:
     for value in cfg.get("schedule", []):
         hour, minute = (int(part) for part in value.split(":"))
         scheduled = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+        scheduled += timedelta(seconds=int(cfg.get("schedule_offset_seconds", 0)))
         if scheduled - timedelta(seconds=before) <= now <= scheduled + timedelta(seconds=after):
             return True
     return False
@@ -530,6 +532,7 @@ def world_boss_schedule_slot(now: datetime, cfg: dict) -> str:
     for value in cfg.get("schedule", []):
         hour, minute = (int(part) for part in value.split(":"))
         scheduled = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+        scheduled += timedelta(seconds=int(cfg.get("schedule_offset_seconds", 0)))
         if scheduled - timedelta(seconds=before) <= now <= scheduled + timedelta(seconds=after):
             return scheduled.strftime("%Y-%m-%dT%H:%M")
     return ""
@@ -714,6 +717,7 @@ def world_boss_tick(
             runtime.spawn_icon_missing_frames = 0
             runtime.spawn_disappeared_at = 0.0
             runtime.entry_repositioned = False
+            runtime.spawn_buffs_used = False
         elif elapsed >= float(cfg.get("arena_verify_timeout_seconds", 8.0)):
             logger.error("world boss arena entry verification failed; radar remains disabled")
             if actions_enabled:
@@ -722,12 +726,6 @@ def world_boss_tick(
             runtime.pending_slot = ""
             runtime.suppress_until = monotonic_now + float(cfg.get("entry_failure_cooldown_seconds", 10))
     elif runtime.state == "arena_wait":
-        if elapsed >= float(cfg["buff_delay_seconds"]) and runtime.last_action == runtime.state_since:
-            logger.info("world boss buffs: Immune to Harm then Dragon Pearl")
-            if actions_enabled:
-                burst_tap(adb, device, device_boss["immune_scroll_point"], 1, 0.25)
-                burst_tap(adb, device, device_boss["dragon_pearl_point"], 1, 0.25)
-            runtime.last_action = monotonic_now
         if (
             elapsed >= float(cfg.get("entry_reposition_delay_seconds", 4.0))
             and not runtime.entry_repositioned
@@ -745,6 +743,13 @@ def world_boss_tick(
             if runtime.spawn_icon_missing_frames >= int(cfg.get("spawn_icon_missing_confirm_frames", 3)):
                 runtime.spawn_disappeared_at = monotonic_now
                 logger.info("world boss countdown icon disappeared; boss spawn confirmed")
+
+        if runtime.spawn_disappeared_at and not runtime.spawn_buffs_used:
+            logger.info("world boss spawn buffs: Immune to Harm then Dragon Pearl")
+            if actions_enabled:
+                burst_tap(adb, device, device_boss["immune_scroll_point"], 1, 0.25)
+                burst_tap(adb, device, device_boss["dragon_pearl_point"], 1, 0.25)
+            runtime.spawn_buffs_used = True
 
         ready_to_attack = (
             runtime.spawn_disappeared_at > 0

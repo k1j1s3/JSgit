@@ -546,12 +546,14 @@ class AutoHuntDetectionTest(unittest.TestCase):
         self.assertFalse(BOT.world_boss_schedule_active(datetime(2026, 8, 15, 23, 10), cfg))
         self.assertFalse(BOT.world_boss_schedule_active(datetime(2026, 8, 15, 18, 0), cfg))
 
-    def test_real_world_boss_icon_is_visible_three_minutes_early(self):
+    def test_real_world_boss_entry_starts_seventy_seconds_before_second_50_spawn(self):
         config_path = Path(__file__).parents[1] / "config" / "auto_hunt.json"
         config = json.loads(config_path.read_text(encoding="utf-8"))
         cfg = config["world_boss"]
-        self.assertGreaterEqual(cfg["schedule_before_seconds"], 300)
-        self.assertTrue(BOT.world_boss_schedule_active(datetime(2026, 8, 22, 19, 56, 30), cfg))
+        self.assertEqual(50, cfg["schedule_offset_seconds"])
+        self.assertEqual(70, cfg["schedule_before_seconds"])
+        self.assertFalse(BOT.world_boss_schedule_active(datetime(2026, 8, 22, 19, 59, 39), cfg))
+        self.assertTrue(BOT.world_boss_schedule_active(datetime(2026, 8, 22, 19, 59, 40), cfg))
 
     def test_world_boss_icon_requires_diamond_and_gold_caption(self):
         image = Image.new("RGB", (100, 100), "black")

@@ -26,7 +26,8 @@ class AutoHuntDetectionTest(unittest.TestCase):
         self.assertEqual("emulator-5556", test_device["device"])
         self.assertTrue(test_device["actions_enabled"])
         self.assertTrue(test_device["world_boss"]["enabled"])
-        self.assertTrue(config["world_boss"]["observe_only"])
+        self.assertFalse(config["world_boss"]["observe_only"])
+        self.assertEqual([170, 330], test_device["world_boss"]["entry_point"])
         self.assertEqual(config["devices"][0]["town_actions"], test_device["town_actions"])
         self.assertEqual(config["devices"][0]["fixed_town_actions"], test_device["fixed_town_actions"])
         self.assertEqual(config["devices"][0]["hunting_routes"], test_device["hunting_routes"])
@@ -562,6 +563,21 @@ class AutoHuntDetectionTest(unittest.TestCase):
         ImageDraw.Draw(image).rectangle((0, 60, 60, 80), fill="black")
         self.assertFalse(BOT.world_boss_icon_visible(image, cfg))
 
+    def test_world_boss_menu_signature_is_verified(self):
+        config_path = Path(__file__).parents[1] / "config" / "auto_hunt.json"
+        cfg = json.loads(config_path.read_text(encoding="utf-8"))["world_boss"]
+        image = Image.new("RGB", (1280, 720), "black")
+        draw = ImageDraw.Draw(image)
+        draw.rectangle(tuple(cfg["menu_title_region"]), fill=(220, 150, 30))
+        draw.rectangle(tuple(cfg["menu_first_card_region"]), fill=(220, 20, 20))
+        self.assertTrue(BOT.world_boss_menu_visible(image, cfg))
+
+    def test_normal_field_does_not_match_world_boss_menu(self):
+        config_path = Path(__file__).parents[1] / "config" / "auto_hunt.json"
+        cfg = json.loads(config_path.read_text(encoding="utf-8"))["world_boss"]
+        image = Image.new("RGB", (1280, 720), (45, 70, 35))
+        self.assertFalse(BOT.world_boss_menu_visible(image, cfg))
+
     def test_priority_loot_prefers_purple_then_red_then_blue(self):
         image = Image.new("RGB", (128, 64), "black")
         draw = ImageDraw.Draw(image)
@@ -614,7 +630,32 @@ class AutoHuntDetectionTest(unittest.TestCase):
 
         self.assertEqual("menu", state)
         tapped.assert_called_once_with("adb", "device", 10, 10)
-        marker.assert_called_once_with("device", "2026-08-15T23:00")
+        marker.assert_not_called()
+
+    def test_verified_world_boss_menu_selects_first_card_and_marks_slot(self):
+        config_path = Path(__file__).parents[1] / "config" / "auto_hunt.json"
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+        global_cfg = {"dry_run": False, "world_boss": config["world_boss"]}
+        device_cfg = {
+            "actions_enabled": True,
+            "world_boss": {"enabled": True, "entry_point": [170, 330]},
+        }
+        runtime = BOT.WorldBossRuntime(
+            state="menu", state_since=0.0, completed_slot="2026-08-22T20:00"
+        )
+        with (
+            patch.object(BOT, "screenshot", return_value=Image.new("RGB", (1280, 720))),
+            patch.object(BOT, "world_boss_menu_visible", return_value=True),
+            patch.object(BOT, "tap") as tapped,
+            patch.object(BOT, "save_world_boss_marker") as marker,
+        ):
+            state = BOT.world_boss_tick(
+                Image.new("RGB", (1280, 720)), 2.0, datetime(2026, 8, 22, 20, 0),
+                "adb", "device", global_cfg, device_cfg, runtime, Mock(),
+            )
+        self.assertEqual("arena_wait", state)
+        tapped.assert_called_once_with("adb", "device", 170, 330)
+        marker.assert_called_once_with("device", "2026-08-22T20:00")
 
     def test_world_boss_observe_only_saves_candidate_without_clicking(self):
         image = Image.new("RGB", (100, 100), "black")

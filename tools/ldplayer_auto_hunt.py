@@ -166,6 +166,16 @@ def world_boss_icon_visible(image: Image.Image, cfg: dict) -> bool:
     return diamond and caption
 
 
+def world_boss_menu_visible(image: Image.Image, cfg: dict) -> bool:
+    """Verify the orange raid title and the unlocked first boss card."""
+    title_gold = count_gold(image, cfg["menu_title_region"])
+    first_card_red = count_world_boss_red(image, cfg["menu_first_card_region"])
+    return (
+        title_gold >= int(cfg.get("minimum_menu_title_gold_pixels", 1500))
+        and first_card_red >= int(cfg.get("minimum_menu_first_card_red_pixels", 500))
+    )
+
+
 def count_loot_text(image: Image.Image, rect: list[int]) -> int:
     """Count bright, low-saturation pixels from the dense ground-item labels."""
     count = 0
@@ -604,19 +614,28 @@ def world_boss_tick(
                 return runtime.state
             if actions_enabled:
                 tap(adb, device, *device_boss["icon_point"])
-                save_world_boss_marker(device, slot)
             runtime.completed_slot = slot
             runtime.state = "menu"
             runtime.state_since = monotonic_now
             runtime.last_action = monotonic_now
             runtime.icon_frames = 0
     elif runtime.state == "menu" and elapsed >= float(cfg["menu_wait_seconds"]):
-        logger.info("world boss entry button")
-        if actions_enabled:
-            tap(adb, device, *device_boss["entry_point"])
-        runtime.state = "arena_wait"
-        runtime.state_since = monotonic_now
-        runtime.last_action = monotonic_now
+        menu_frame = screenshot(adb, device)
+        if world_boss_menu_visible(menu_frame, cfg):
+            logger.info("verified world boss menu; select fixed first boss card")
+            if actions_enabled:
+                tap(adb, device, *device_boss["entry_point"])
+                save_world_boss_marker(device, runtime.completed_slot)
+            runtime.state = "arena_wait"
+            runtime.state_since = monotonic_now
+            runtime.last_action = monotonic_now
+        elif elapsed >= float(cfg.get("menu_verify_timeout_seconds", 5.0)):
+            logger.error("world boss menu verification failed; back out without entry")
+            if actions_enabled:
+                run_adb(adb, device, "shell", "input", "keyevent", "4")
+            runtime.state = "idle"
+            runtime.suppress_until = monotonic_now + float(cfg.get("menu_failure_cooldown_seconds", 60))
+            runtime.icon_frames = 0
     elif runtime.state == "arena_wait":
         if elapsed >= float(cfg["buff_delay_seconds"]) and runtime.last_action == runtime.state_since:
             logger.info("world boss buffs: Immune to Harm then Dragon Pearl")

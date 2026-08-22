@@ -53,6 +53,10 @@ class WorldBossRuntime:
     motion_index: int = 0
     entered_at_wall: float = 0.0
     pending_slot: str = ""
+    spawn_icon_seen: bool = False
+    spawn_icon_missing_frames: int = 0
+    spawn_disappeared_at: float = 0.0
+    entry_repositioned: bool = False
 
 
 def run_adb(adb: str, device: str, *args: str, binary: bool = False):
@@ -706,6 +710,10 @@ def world_boss_tick(
             runtime.state = "arena_wait"
             runtime.state_since = monotonic_now
             runtime.last_action = monotonic_now
+            runtime.spawn_icon_seen = False
+            runtime.spawn_icon_missing_frames = 0
+            runtime.spawn_disappeared_at = 0.0
+            runtime.entry_repositioned = False
         elif elapsed >= float(cfg.get("arena_verify_timeout_seconds", 8.0)):
             logger.error("world boss arena entry verification failed; radar remains disabled")
             if actions_enabled:
@@ -720,10 +728,32 @@ def world_boss_tick(
                 burst_tap(adb, device, device_boss["immune_scroll_point"], 1, 0.25)
                 burst_tap(adb, device, device_boss["dragon_pearl_point"], 1, 0.25)
             runtime.last_action = monotonic_now
-        if elapsed >= float(cfg["attack_delay_seconds"]):
-            logger.info("world boss reposition, radar target row 1 acquisition and AUTO")
+        if (
+            elapsed >= float(cfg.get("entry_reposition_delay_seconds", 4.0))
+            and not runtime.entry_repositioned
+        ):
             if actions_enabled:
                 move_toward_world_boss(adb, device, device_boss, logger)
+            runtime.entry_repositioned = True
+
+        spawn_icon_visible = world_boss_icon_visible(image, cfg)
+        if spawn_icon_visible:
+            runtime.spawn_icon_seen = True
+            runtime.spawn_icon_missing_frames = 0
+        elif runtime.spawn_icon_seen and not runtime.spawn_disappeared_at:
+            runtime.spawn_icon_missing_frames += 1
+            if runtime.spawn_icon_missing_frames >= int(cfg.get("spawn_icon_missing_confirm_frames", 3)):
+                runtime.spawn_disappeared_at = monotonic_now
+                logger.info("world boss countdown icon disappeared; boss spawn confirmed")
+
+        ready_to_attack = (
+            runtime.spawn_disappeared_at > 0
+            and monotonic_now - runtime.spawn_disappeared_at
+            >= float(cfg.get("post_spawn_lag_seconds", 5.0))
+        )
+        if ready_to_attack:
+            logger.info("world boss spawn lag elapsed; radar target row 1 acquisition and AUTO")
+            if actions_enabled:
                 radar_select_first_target(adb, device, device_boss, logger)
                 tap(adb, device, *device_boss["attack_point"])
                 active = is_auto_active(

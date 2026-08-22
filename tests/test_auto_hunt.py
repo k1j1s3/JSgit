@@ -721,6 +721,34 @@ class AutoHuntDetectionTest(unittest.TestCase):
             [call.args for call in tapped.call_args_list],
         )
 
+    def test_world_boss_waits_for_countdown_icon_to_disappear_before_attack(self):
+        cfg = {
+            "dry_run": True,
+            "world_boss": {
+                "enabled": True,
+                "buff_delay_seconds": 2,
+                "entry_reposition_delay_seconds": 4,
+                "spawn_icon_missing_confirm_frames": 3,
+                "post_spawn_lag_seconds": 5,
+            },
+        }
+        device = {"world_boss": {"enabled": True}}
+        runtime = BOT.WorldBossRuntime(state="arena_wait", state_since=100, last_action=101)
+        frame = Image.new("RGB", (1280, 720))
+
+        with patch.object(BOT, "world_boss_icon_visible", return_value=True):
+            BOT.world_boss_tick(frame, 102, datetime.now(), "adb", "device", cfg, device, runtime, Mock())
+        self.assertTrue(runtime.spawn_icon_seen)
+
+        with patch.object(BOT, "world_boss_icon_visible", return_value=False):
+            for now in (103, 104, 105):
+                BOT.world_boss_tick(frame, now, datetime.now(), "adb", "device", cfg, device, runtime, Mock())
+            self.assertEqual("arena_wait", runtime.state)
+            BOT.world_boss_tick(frame, 109.9, datetime.now(), "adb", "device", cfg, device, runtime, Mock())
+            self.assertEqual("arena_wait", runtime.state)
+            BOT.world_boss_tick(frame, 110, datetime.now(), "adb", "device", cfg, device, runtime, Mock())
+        self.assertEqual("combat", runtime.state)
+
     def test_world_boss_entry_reposition_moves_once_toward_ten_oclock(self):
         cfg = {
             "entry_move_start": [117, 546],

@@ -5,7 +5,7 @@ import unittest
 from collections import deque
 from datetime import datetime
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import ANY, Mock, patch
 
 from PIL import Image, ImageDraw
 
@@ -655,7 +655,7 @@ class AutoHuntDetectionTest(unittest.TestCase):
             )
         self.assertEqual("arena_wait", state)
         tapped.assert_called_once_with("adb", "device", 170, 330)
-        marker.assert_called_once_with("device", "2026-08-22T20:00")
+        marker.assert_called_once_with("device", "2026-08-22T20:00", "arena", ANY)
 
     def test_world_boss_observe_only_saves_candidate_without_clicking(self):
         image = Image.new("RGB", (100, 100), "black")
@@ -714,6 +714,28 @@ class AutoHuntDetectionTest(unittest.TestCase):
         config = json.loads((BOT.ROOT / "config" / "auto_hunt.json").read_text(encoding="utf-8"))
         device = BOT.resolve_device_config(config, config["devices"][1])
         self.assertEqual([1097, 548], device["world_boss"]["attack_point"])
+
+    def test_blocked_world_boss_exit_restarts_same_character_then_resumes(self):
+        cfg = {
+            "game_package": "com.example.game",
+            "game_restart_delay_seconds": 0,
+            "game_title_wait_seconds": 0,
+            "character_select_wait_seconds": 0,
+            "character_enter_wait_seconds": 0,
+            "game_title_start_point": [640, 500],
+            "current_character_enter_point": [1085, 660],
+        }
+        with (
+            patch.object(BOT, "run_adb") as adb,
+            patch.object(BOT, "tap") as tapped,
+            patch.object(BOT, "recover_and_resume", return_value={"name": "route"}),
+        ):
+            self.assertTrue(BOT.restart_game_and_resume("adb", "device", cfg, Mock()))
+        self.assertEqual("force-stop", adb.call_args_list[0].args[-2])
+        self.assertEqual(
+            [("adb", "device", 640, 500), ("adb", "device", 1085, 660)],
+            [call.args for call in tapped.call_args_list],
+        )
 
     def test_loot_motion_interleaves_pickup_and_short_move(self):
         device = {

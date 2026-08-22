@@ -51,6 +51,7 @@ class WorldBossRuntime:
     completed_slot: str = ""
     loot_empty_frames: int = 0
     motion_index: int = 0
+    entered_at_wall: float = 0.0
 
 
 def run_adb(adb: str, device: str, *args: str, binary: bool = False):
@@ -511,10 +512,20 @@ def load_world_boss_marker(device: str) -> str:
         return ""
 
 
-def save_world_boss_marker(device: str, slot: str):
+def load_world_boss_session(device: str) -> dict:
+    try:
+        return json.loads(world_boss_marker_path(device).read_text(encoding="utf-8"))
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        return {}
+
+
+def save_world_boss_marker(device: str, slot: str, phase: str = "complete", entered_at: float = 0.0):
     path = world_boss_marker_path(device)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps({"slot": slot}), encoding="utf-8")
+    path.write_text(
+        json.dumps({"slot": slot, "phase": phase, "entered_at": entered_at}),
+        encoding="utf-8",
+    )
 
 
 def hunting_route_marker_path(device: str) -> Path:
@@ -637,7 +648,10 @@ def world_boss_tick(
             logger.info("verified world boss menu; select fixed first boss card")
             if actions_enabled:
                 tap(adb, device, *device_boss["entry_point"])
-                save_world_boss_marker(device, runtime.completed_slot)
+                runtime.entered_at_wall = time.time()
+                save_world_boss_marker(
+                    device, runtime.completed_slot, "arena", runtime.entered_at_wall
+                )
             runtime.state = "arena_wait"
             runtime.state_since = monotonic_now
             runtime.last_action = monotonic_now
@@ -672,6 +686,16 @@ def world_boss_tick(
             runtime.state_since = monotonic_now
             runtime.last_action = monotonic_now
     elif runtime.state == "combat":
+        if (
+            runtime.entered_at_wall
+            and time.time() - runtime.entered_at_wall
+            >= float(cfg.get("maximum_arena_session_seconds", 900))
+        ):
+            logger.error("world boss arena session exceeded limit; restart game and resume hunting")
+            if actions_enabled and restart_game_and_resume(adb, device, device_cfg, logger):
+                save_world_boss_marker(device, runtime.completed_slot, "complete")
+                runtime.state = "idle"
+            return runtime.state
         loot_pixels = count_loot_text(image, cfg["loot_region"])
         if elapsed >= float(cfg["minimum_combat_seconds"]) and loot_pixels >= int(cfg["minimum_loot_text_pixels"]):
             runtime.loot_frames += 1
@@ -718,7 +742,8 @@ def world_boss_tick(
                 runtime.loot_empty_frames,
             )
             if actions_enabled:
-                recover_and_resume(adb, device, device_cfg, logger)
+                restart_game_and_resume(adb, device, device_cfg, logger)
+                save_world_boss_marker(device, runtime.completed_slot, "complete")
             runtime.state = "idle"
             runtime.suppress_until = monotonic_now + float(cfg["completion_cooldown_seconds"])
             runtime.state_since = monotonic_now
@@ -788,6 +813,24 @@ def recover_and_resume(adb: str, device: str, device_cfg: dict, logger):
     if round_robin and completed:
         save_hunting_route_index(device, (route_index + 1) % len(routes))
     return route
+
+
+def restart_game_and_resume(adb: str, device: str, device_cfg: dict, logger) -> bool:
+    """Leave teleport-blocked instances by reconnecting the same character."""
+    package = device_cfg.get("game_package", "com.tuhota.tuhota")
+    logger.warning("restart game to leave blocked instance package=%s", package)
+    run_adb(adb, device, "shell", "am", "force-stop", package)
+    time.sleep(float(device_cfg.get("game_restart_delay_seconds", 2)))
+    run_adb(
+        adb, device, "shell", "monkey", "-p", package,
+        "-c", "android.intent.category.LAUNCHER", "1",
+    )
+    time.sleep(float(device_cfg.get("game_title_wait_seconds", 20)))
+    tap(adb, device, *device_cfg.get("game_title_start_point", [640, 500]))
+    time.sleep(float(device_cfg.get("character_select_wait_seconds", 12)))
+    tap(adb, device, *device_cfg.get("current_character_enter_point", [1085, 660]))
+    time.sleep(float(device_cfg.get("character_enter_wait_seconds", 18)))
+    return recover_and_resume(adb, device, device_cfg, logger) is not None
 
 
 def recover_after_death(adb: str, device: str, device_cfg: dict, logger):
@@ -866,7 +909,16 @@ def device_loop(global_cfg: dict, device_cfg: dict, once: bool = False):
     history: deque[FrameState] = deque(maxlen=30)
     cooldown_until = 0.0
     logger = logging.getLogger(device)
-    world_boss = WorldBossRuntime(completed_slot=load_world_boss_marker(device))
+    boss_session = load_world_boss_session(device)
+    world_boss = WorldBossRuntime(
+        completed_slot=str(boss_session.get("slot", "")),
+        entered_at_wall=float(boss_session.get("entered_at", 0.0) or 0.0),
+    )
+    if boss_session.get("phase") == "arena":
+        world_boss.state = "combat"
+        world_boss.state_since = time.monotonic()
+        world_boss.last_action = world_boss.state_since
+        logger.warning("restored unfinished world boss arena session from disk")
     auto_watchdog_at = 0.0
 
     while True:

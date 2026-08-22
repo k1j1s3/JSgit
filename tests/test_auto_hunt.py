@@ -25,7 +25,8 @@ class AutoHuntDetectionTest(unittest.TestCase):
         test_device = BOT.resolve_device_config(config, config["devices"][1])
         self.assertEqual("emulator-5556", test_device["device"])
         self.assertTrue(test_device["actions_enabled"])
-        self.assertFalse(test_device["world_boss"]["enabled"])
+        self.assertTrue(test_device["world_boss"]["enabled"])
+        self.assertTrue(config["world_boss"]["observe_only"])
         self.assertEqual(config["devices"][0]["town_actions"], test_device["town_actions"])
         self.assertEqual(config["devices"][0]["fixed_town_actions"], test_device["fixed_town_actions"])
         self.assertEqual(config["devices"][0]["hunting_routes"], test_device["hunting_routes"])
@@ -568,6 +569,61 @@ class AutoHuntDetectionTest(unittest.TestCase):
         self.assertEqual("menu", state)
         tapped.assert_called_once_with("adb", "device", 10, 10)
         marker.assert_called_once_with("device", "2026-08-15T23:00")
+
+    def test_world_boss_observe_only_saves_candidate_without_clicking(self):
+        image = Image.new("RGB", (100, 100), "black")
+        global_cfg = {
+            "dry_run": False,
+            "evidence_directory": "data/bot-evidence",
+            "world_boss": {
+                "enabled": True,
+                "observe_only": True,
+                "schedule": ["23:00"],
+                "schedule_before_seconds": 90,
+                "schedule_after_seconds": 180,
+                "icon_confirm_frames": 3,
+            },
+        }
+        device_cfg = {"actions_enabled": True, "world_boss": {"enabled": True}}
+        runtime = BOT.WorldBossRuntime(icon_frames=2)
+        with (
+            patch.object(BOT, "world_boss_icon_visible", return_value=True),
+            patch.object(BOT, "save_evidence") as evidence,
+            patch.object(BOT, "tap") as tapped,
+        ):
+            state = BOT.world_boss_tick(
+                image, 100.0, datetime(2026, 8, 15, 23, 0),
+                "adb", "device", global_cfg, device_cfg, runtime, Mock(),
+            )
+        self.assertEqual("idle", state)
+        evidence.assert_called_once()
+        tapped.assert_not_called()
+
+    def test_radar_selects_first_target(self):
+        cfg = {
+            "radar_point": [28, 538],
+            "radar_first_target_point": [105, 230],
+            "radar_wait_seconds": 0,
+        }
+        with patch.object(BOT, "tap") as tapped:
+            BOT.radar_select_first_target("adb", "device", cfg, Mock())
+        self.assertEqual(
+            [("adb", "device", 28, 538), ("adb", "device", 105, 230)],
+            [call.args for call in tapped.call_args_list],
+        )
+
+    def test_loot_motion_interleaves_pickup_and_short_move(self):
+        device = {
+            "pickup_point": [1165, 418],
+            "joystick_center": [117, 546],
+            "loot_micro_move_points": [[117, 510], [153, 546]],
+        }
+        cfg = {"pickup_burst_count": 8, "pickup_burst_delay_seconds": 0, "loot_micro_move_duration_ms": 180}
+        runtime = BOT.WorldBossRuntime()
+        with patch.object(BOT, "tap") as tapped, patch.object(BOT, "swipe") as moved:
+            BOT.loot_motion_cycle("adb", "device", device, cfg, runtime)
+        self.assertEqual(8, tapped.call_count)
+        moved.assert_called_once_with("adb", "device", [117, 546], [117, 510], 180)
 
 
 

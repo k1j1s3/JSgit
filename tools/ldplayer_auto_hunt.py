@@ -49,6 +49,8 @@ class WorldBossRuntime:
     suppress_until: float = 0.0
     icon_frames: int = 0
     completed_slot: str = ""
+    loot_empty_frames: int = 0
+    motion_index: int = 0
 
 
 def run_adb(adb: str, device: str, *args: str, binary: bool = False):
@@ -513,6 +515,34 @@ def burst_tap(adb: str, device: str, point: list[int], count: int, delay: float)
         time.sleep(delay)
 
 
+def radar_select_first_target(adb: str, device: str, device_boss: dict, logger):
+    """Refresh the in-game target radar and select its first row."""
+    logger.info("radar refresh and select target row 1")
+    tap(adb, device, *device_boss["radar_point"])
+    time.sleep(float(device_boss.get("radar_wait_seconds", 0.35)))
+    tap(adb, device, *device_boss["radar_first_target_point"])
+
+
+def loot_motion_cycle(adb: str, device: str, device_boss: dict, cfg: dict, runtime: WorldBossRuntime):
+    """Continuously pick up while making a short collision-resistant 8-way move."""
+    pickup = device_boss["pickup_point"]
+    count = int(cfg.get("pickup_burst_count", 8))
+    delay = float(cfg.get("pickup_burst_delay_seconds", 0.06))
+    first = max(1, count // 2)
+    burst_tap(adb, device, pickup, first, delay)
+    directions = device_boss["loot_micro_move_points"]
+    end = directions[runtime.motion_index % len(directions)]
+    runtime.motion_index += 1
+    swipe(
+        adb,
+        device,
+        device_boss["joystick_center"],
+        end,
+        int(cfg.get("loot_micro_move_duration_ms", 180)),
+    )
+    burst_tap(adb, device, pickup, max(1, count - first), delay)
+
+
 def world_boss_tick(
     image: Image.Image,
     monotonic_now: float,
@@ -543,6 +573,17 @@ def world_boss_tick(
             and runtime.icon_frames >= int(cfg.get("icon_confirm_frames", 3))
         ):
             logger.warning("world boss icon signature confirmed slot=%s", slot)
+            if cfg.get("observe_only", False):
+                evidence = save_evidence(
+                    image,
+                    ROOT / global_cfg["evidence_directory"],
+                    device,
+                    "world-boss-icon-candidate",
+                )
+                logger.warning("world boss observe-only candidate saved: %s", evidence)
+                runtime.icon_frames = 0
+                runtime.suppress_until = monotonic_now + float(cfg.get("observe_cooldown_seconds", 30))
+                return runtime.state
             if actions_enabled:
                 tap(adb, device, *device_boss["icon_point"])
                 save_world_boss_marker(device, slot)
@@ -566,9 +607,9 @@ def world_boss_tick(
                 burst_tap(adb, device, device_boss["dragon_pearl_point"], 1, 0.25)
             runtime.last_action = monotonic_now
         if elapsed >= float(cfg["attack_delay_seconds"]):
-            logger.info("world boss target acquisition and AUTO")
+            logger.info("world boss radar target row 1 acquisition and AUTO")
             if actions_enabled:
-                tap(adb, device, *device_boss["boss_target_point"])
+                radar_select_first_target(adb, device, device_boss, logger)
                 tap(adb, device, *device_boss["attack_point"])
                 active = is_auto_active(
                     screenshot(adb, device),
@@ -591,34 +632,48 @@ def world_boss_tick(
             runtime.state = "loot"
             runtime.state_since = monotonic_now
             runtime.last_action = 0.0
+            runtime.loot_empty_frames = 0
+            runtime.motion_index = 0
+            if actions_enabled:
+                execute_actions(adb, device, [{
+                    "type": "ensure_auto_off",
+                    "point": device_boss["auto_point"],
+                    "region": device_boss["auto_region"],
+                    "minimum_orange_pixels": device_boss["minimum_auto_orange_pixels"],
+                    "label": "disable AUTO before continuous world-boss pickup",
+                }], logger)
         elif monotonic_now - runtime.last_action >= float(cfg["reacquire_seconds"]):
             if actions_enabled:
-                tap(adb, device, *device_boss["boss_target_point"])
+                radar_select_first_target(adb, device, device_boss, logger)
                 tap(adb, device, *device_boss["attack_point"])
             runtime.last_action = monotonic_now
     elif runtime.state == "loot":
-        if elapsed <= float(cfg["loot_duration_seconds"]):
-            target = find_priority_loot_target(image, cfg["loot_priority_region"])
-            if target and actions_enabled:
-                label, point = target
-                logger.info("priority loot target %s at %s", label, point)
-                tap(adb, device, *point)
+        loot_pixels = count_loot_text(image, cfg["loot_region"])
+        if elapsed >= float(cfg.get("minimum_loot_seconds", 5.0)):
+            if loot_pixels < int(cfg["minimum_loot_text_pixels"]):
+                runtime.loot_empty_frames += 1
+            else:
+                runtime.loot_empty_frames = 0
+        finished = (
+            elapsed > float(cfg["loot_duration_seconds"])
+            or runtime.loot_empty_frames >= int(cfg.get("loot_empty_confirm_frames", 4))
+        )
+        if not finished:
             if actions_enabled:
-                burst_tap(
-                    adb,
-                    device,
-                    device_boss["pickup_point"],
-                    int(cfg["pickup_burst_count"]),
-                    float(cfg["pickup_burst_delay_seconds"]),
-                )
+                loot_motion_cycle(adb, device, device_boss, cfg, runtime)
         else:
-            logger.info("world boss loot window complete; return to town and resume")
+            logger.info(
+                "world boss loot complete elapsed=%.1f empty_frames=%s; return and resume",
+                elapsed,
+                runtime.loot_empty_frames,
+            )
             if actions_enabled:
                 recover_and_resume(adb, device, device_cfg, logger)
             runtime.state = "idle"
             runtime.suppress_until = monotonic_now + float(cfg["completion_cooldown_seconds"])
             runtime.state_since = monotonic_now
             runtime.loot_frames = 0
+            runtime.loot_empty_frames = 0
     return runtime.state
 
 

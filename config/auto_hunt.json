@@ -23,7 +23,9 @@
     "cooldown_seconds": 2
   },
   "world_boss": {
-    "enabled": false,
+    "enabled": true,
+    "observe_only": true,
+    "observe_cooldown_seconds": 30,
     "schedule": ["14:00", "20:00", "21:00", "22:00", "23:00"],
     "schedule_before_seconds": 90,
     "schedule_after_seconds": 180,
@@ -48,9 +50,12 @@
     "minimum_loot_text_pixels": 20000,
     "loot_confirm_frames": 2,
     "loot_priority_region": [80, 140, 1050, 590],
-    "pickup_burst_count": 3,
-    "pickup_burst_delay_seconds": 0.12,
-    "loot_duration_seconds": 18.0,
+    "pickup_burst_count": 8,
+    "pickup_burst_delay_seconds": 0.06,
+    "loot_micro_move_duration_ms": 180,
+    "minimum_loot_seconds": 5.0,
+    "loot_empty_confirm_frames": 4,
+    "loot_duration_seconds": 45.0,
     "completion_cooldown_seconds": 3600
   },
   "devices": [
@@ -64,12 +69,16 @@
         "entry_point": [640, 650],
         "immune_scroll_point": [1018, 640],
         "dragon_pearl_point": [1090, 640],
-        "boss_target_point": [650, 300],
+        "radar_point": [28, 538],
+        "radar_first_target_point": [105, 230],
+        "radar_wait_seconds": 0.35,
         "attack_point": [1165, 548],
         "auto_point": [998, 548],
         "auto_region": [960, 500, 1040, 590],
         "minimum_auto_orange_pixels": 500,
-        "pickup_point": [1165, 418]
+        "pickup_point": [1165, 418],
+        "joystick_center": [117, 546],
+        "loot_micro_move_points": [[117, 510], [143, 520], [153, 546], [143, 572], [117, 582], [91, 572], [81, 546], [91, 520]]
       },
       "regions": {
         "hp_bar": [88, 41, 319, 58],
@@ -173,7 +182,7 @@
         {"type": "close_overlay_if_open", "region": [330, 80, 385, 135], "point": [359, 111], "label": "close accidental friend panel before routing"}
       ],
       "world_boss": {
-        "enabled": false
+        "enabled": true
       },
       "regions": {
         "hp_bar": [88, 41, 319, 58],

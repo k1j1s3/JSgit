@@ -334,6 +334,13 @@ class AutoHuntDetectionTest(unittest.TestCase):
         draw.rectangle((95, 0, 96, 9), fill=(220, 20, 20))
         self.assertAlmostEqual(BOT.measure_hp(image, [0, 0, 100, 10]), 0.80, places=2)
 
+    def test_hp_measurement_ignores_sparse_combat_effect_row_damage(self):
+        image = Image.new("RGB", (100, 12), (20, 20, 20))
+        draw = ImageDraw.Draw(image)
+        draw.rectangle((0, 1, 59, 10), fill=(210, 35, 35))
+        draw.rectangle((35, 1, 99, 3), fill=(20, 20, 20))
+        self.assertGreaterEqual(BOT.measure_hp(image, [0, 0, 100, 12]), 0.59)
+
     def test_requires_hp_drop_and_player_color(self):
         cfg = {
             "detection": {

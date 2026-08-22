@@ -107,7 +107,37 @@ def measure_hp(image: Image.Image, rect: list[int]) -> float:
             cluster = [x]
     clusters.append(cluster)
     bar = max(clusters, key=lambda values: (len(values), values[-1] - values[0]))
-    return max(0.0, min(1.0, (bar[-1] + 1) / max(1, width)))
+    column_ratio = (bar[-1] + 1) / max(1, width)
+
+    # Combat flashes and the numeric HP caption can break otherwise-valid
+    # vertical columns. Estimate the edge independently on each scanline and
+    # use the upper quartile so one damaged row cannot cause a false return.
+    row_ratios = []
+    for y in range(height):
+        colored_x = []
+        for x in range(width):
+            r, g, b = region.getpixel((x, y))
+            red_hp = r >= 135 and r >= g * 1.45 and r >= b * 1.35
+            green_hp = g >= 105 and g >= r * 1.25 and g >= b * 1.15
+            if red_hp or green_hp:
+                colored_x.append(x)
+        if colored_x:
+            row_clusters = [[colored_x[0]]]
+            for x in colored_x[1:]:
+                if x - row_clusters[-1][-1] - 1 <= 4:
+                    row_clusters[-1].append(x)
+                else:
+                    row_clusters.append([x])
+            row_bar = max(
+                row_clusters,
+                key=lambda values: (len(values), values[-1] - values[0]),
+            )
+            row_ratios.append((row_bar[-1] + 1) / max(1, width))
+    if not row_ratios:
+        return max(0.0, min(1.0, column_ratio))
+    row_ratios.sort()
+    upper_quartile = row_ratios[int((len(row_ratios) - 1) * 0.75)]
+    return max(0.0, min(1.0, max(column_ratio, upper_quartile)))
 
 
 def count_cyan(image: Image.Image, rect: list[int]) -> int:

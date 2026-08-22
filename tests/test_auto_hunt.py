@@ -268,6 +268,45 @@ class AutoHuntDetectionTest(unittest.TestCase):
         self.assertFalse(BOT.is_main_menu_open(closed, [0, 0, 400, 600]))
         self.assertTrue(BOT.is_main_menu_open(opened, [0, 0, 400, 600]))
 
+    def test_death_panel_is_detected(self):
+        image = Image.new("RGB", (1280, 720), "black")
+        draw = ImageDraw.Draw(image)
+        draw.rectangle((390, 65, 890, 605), fill=(70, 45, 30))
+        draw.rectangle((555, 547, 725, 591), fill=(35, 65, 110))
+        self.assertTrue(BOT.is_death_panel_visible(image, {}))
+
+    def test_normal_field_is_not_death_panel(self):
+        image = Image.new("RGB", (1280, 720), (45, 70, 35))
+        self.assertFalse(BOT.is_death_panel_visible(image, {}))
+
+    def test_recover_after_death_restarts_then_resumes_hunting(self):
+        cfg = {
+            "death_restart_point": [640, 570],
+            "death_restart_load_seconds": 0,
+            "death_recovery_hp_ratio": 0.9,
+            "death_recovery_timeout_seconds": 1,
+            "safe_zone_cyan_pixels": 100,
+            "regions": {"zone_label": [0, 0, 1, 1], "hp_bar": [0, 0, 1, 1]},
+            "fixed_town_actions": [{"type": "tap", "point": [1, 1]}],
+            "town_actions": [{"type": "tap", "point": [2, 2]}],
+            "hunting_routes": [{"name": "route", "actions": [{"type": "tap", "point": [3, 3]}]}],
+        }
+        with (
+            patch.object(BOT, "tap") as tapped,
+            patch.object(BOT, "screenshot", return_value=Image.new("RGB", (1, 1))),
+            patch.object(BOT, "count_safe_zone_color", return_value=200),
+            patch.object(BOT, "measure_hp", return_value=1.0),
+            patch.object(BOT.time, "sleep"),
+            patch.object(BOT, "execute_actions", return_value=True) as execute,
+            patch.object(BOT, "load_hunting_route_index", return_value=0),
+            patch.object(BOT, "save_hunting_route_index") as save,
+        ):
+            route = BOT.recover_after_death("adb", "device", cfg, Mock())
+        tapped.assert_called_once_with("adb", "device", 640, 570)
+        self.assertEqual("route", route["name"])
+        self.assertEqual(3, execute.call_count)
+        save.assert_called_once_with("device", 0)
+
     def test_reference_verification_distinguishes_shop_from_warehouse(self):
         shop = Image.open(BOT.ROOT / "data/auto-hunt/town-general-merchant.png").convert("RGB")
         shop_after = Image.open(BOT.ROOT / "data/auto-hunt/town-auto-purchase-confirmed.png").convert("RGB")
@@ -498,6 +537,13 @@ class AutoHuntDetectionTest(unittest.TestCase):
         self.assertTrue(BOT.world_boss_schedule_active(datetime(2026, 8, 15, 23, 2), cfg))
         self.assertFalse(BOT.world_boss_schedule_active(datetime(2026, 8, 15, 23, 10), cfg))
         self.assertFalse(BOT.world_boss_schedule_active(datetime(2026, 8, 15, 18, 0), cfg))
+
+    def test_real_world_boss_icon_is_visible_three_minutes_early(self):
+        config_path = Path(__file__).parents[1] / "config" / "auto_hunt.json"
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+        cfg = config["world_boss"]
+        self.assertGreaterEqual(cfg["schedule_before_seconds"], 300)
+        self.assertTrue(BOT.world_boss_schedule_active(datetime(2026, 8, 22, 19, 56, 30), cfg))
 
     def test_world_boss_icon_requires_diamond_and_gold_caption(self):
         image = Image.new("RGB", (100, 100), "black")

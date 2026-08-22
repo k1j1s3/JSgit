@@ -249,6 +249,24 @@ def is_main_menu_open(image: Image.Image, rect: list[int], minimum_panel_pixels:
     return panel_pixels >= minimum_panel_pixels
 
 
+def is_death_panel_visible(image: Image.Image, cfg: dict) -> bool:
+    """Recognize the brown death modal together with its blue restart button."""
+    button = cfg.get("death_restart_button_region", [555, 547, 725, 591])
+    panel = cfg.get("death_panel_region", [390, 65, 890, 605])
+    blue = sum(
+        1 for r, g, b in crop_pixels(image, button)
+        if b >= 55 and b >= r * 1.15 and b >= g * 1.05
+    )
+    brown = sum(
+        1 for r, g, b in crop_pixels(image, panel)
+        if r >= 35 and r >= g * 1.15 and g >= b * 1.05
+    )
+    return (
+        blue >= int(cfg.get("minimum_death_button_blue_pixels", 4000))
+        and brown >= int(cfg.get("minimum_death_panel_brown_pixels", 100000))
+    )
+
+
 def reference_similarity(image: Image.Image, reference: Image.Image, regions: list[list[int]]) -> float:
     scores = []
     for rect in regions:
@@ -740,6 +758,48 @@ def recover_and_resume(adb: str, device: str, device_cfg: dict, logger):
     return route
 
 
+def recover_after_death(adb: str, device: str, device_cfg: dict, logger):
+    """Restart after death, recover safely, perform town chores, and hunt again."""
+    point = device_cfg.get("death_restart_point", [640, 570])
+    logger.critical("death panel detected; restarting character at %s", point)
+    tap(adb, device, *point)
+    time.sleep(float(device_cfg.get("death_restart_load_seconds", 5.0)))
+
+    target = float(device_cfg.get("death_recovery_hp_ratio", 0.90))
+    deadline = time.monotonic() + float(device_cfg.get("death_recovery_timeout_seconds", 180))
+    recovered_frames = 0
+    while time.monotonic() < deadline:
+        frame = screenshot(adb, device)
+        safe = count_safe_zone_color(frame, device_cfg["regions"]["zone_label"])
+        hp = measure_hp(frame, device_cfg["regions"]["hp_bar"])
+        logger.info("death recovery hp=%.3f safe=%s target=%.3f", hp, safe, target)
+        if safe >= int(device_cfg.get("safe_zone_cyan_pixels", 150)) and hp >= target:
+            recovered_frames += 1
+            if recovered_frames >= 2:
+                break
+        else:
+            recovered_frames = 0
+        time.sleep(2.0)
+    if recovered_frames < 2:
+        logger.error("death recovery timed out; remaining in safe town without risky clicks")
+        return None
+
+    fixed = device_cfg.get("fixed_town_actions", [])
+    if fixed and not execute_actions(adb, device, fixed, logger):
+        return None
+    if device_cfg.get("town_actions_enabled", True):
+        if not execute_actions(adb, device, device_cfg.get("town_actions", []), logger):
+            return None
+    routes = device_cfg["hunting_routes"]
+    index = load_hunting_route_index(device, len(routes))
+    route = routes[index]
+    logger.info("post-death hunting route selected: %s", route.get("name", ""))
+    completed = execute_actions(adb, device, route["actions"], logger)
+    if completed:
+        save_hunting_route_index(device, (index + 1) % len(routes))
+    return route if completed else None
+
+
 def recover_quest_to_town(adb: str, device: str, device_cfg: dict, logger):
     """Quest mode must never choose a normal hunting route after escape."""
     if "regions" in device_cfg and not return_to_town(adb, device, device_cfg, logger):
@@ -775,10 +835,23 @@ def device_loop(global_cfg: dict, device_cfg: dict, once: bool = False):
     cooldown_until = 0.0
     logger = logging.getLogger(device)
     world_boss = WorldBossRuntime(completed_slot=load_world_boss_marker(device))
+    auto_watchdog_at = 0.0
 
     while True:
         image = screenshot(adb, device)
         now = time.monotonic()
+        if is_death_panel_visible(image, device_cfg):
+            evidence = save_evidence(image, output, device, "death")
+            logger.critical("death detected evidence=%s", evidence)
+            if not global_cfg["dry_run"] and device_cfg.get("actions_enabled", False):
+                recover_after_death(adb, device, device_cfg, logger)
+            history.clear()
+            world_boss.state = "idle"
+            auto_watchdog_at = time.monotonic() + 10.0
+            if once:
+                return None
+            time.sleep(interval)
+            continue
         state = FrameState(
             timestamp=now,
             hp_ratio=measure_hp(image, device_cfg["regions"]["hp_bar"]),
@@ -836,6 +909,31 @@ def device_loop(global_cfg: dict, device_cfg: dict, once: bool = False):
                 world_boss,
                 logger,
             )
+
+        safe_minimum = int(device_cfg.get("safe_zone_cyan_pixels", 150))
+        field_ready = state.hp_ratio > 0.40 and state.safe_zone_pixels < safe_minimum
+        menus_closed = (
+            not is_main_menu_open(image, [900, 80, 1270, 680])
+            and not is_close_overlay_open(image, [1200, 5, 1270, 75])
+        )
+        if (
+            not threat
+            and world_boss.state == "idle"
+            and field_ready
+            and menus_closed
+            and now >= auto_watchdog_at
+        ):
+            boss_cfg = device_cfg.get("world_boss", {})
+            execute_actions(adb, device, [{
+                "type": "ensure_auto",
+                "point": boss_cfg.get("auto_point", [998, 548]),
+                "region": boss_cfg.get("auto_region", [960, 500, 1040, 590]),
+                "minimum_orange_pixels": boss_cfg.get("minimum_auto_orange_pixels", 500),
+                "sample_count": 2,
+                "sample_interval_seconds": 0.15,
+                "label": "field idle watchdog keeps hunting active",
+            }], logger)
+            auto_watchdog_at = now + float(device_cfg.get("auto_watchdog_seconds", 8.0))
 
         if once:
             return state

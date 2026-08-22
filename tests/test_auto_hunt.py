@@ -285,6 +285,14 @@ class AutoHuntDetectionTest(unittest.TestCase):
         ImageDraw.Draw(image).rectangle((0, 0, 88, 9), fill=(55, 190, 45))
         self.assertAlmostEqual(BOT.measure_hp(image, [0, 0, 100, 10]), 0.89, places=2)
 
+    def test_hp_measurement_ignores_isolated_red_ui_noise(self):
+        image = Image.new("RGB", (100, 10), "black")
+        draw = ImageDraw.Draw(image)
+        draw.rectangle((10, 0, 79, 9), fill=(220, 20, 20))
+        draw.rectangle((0, 0, 0, 9), fill=(220, 20, 20))
+        draw.rectangle((95, 0, 96, 9), fill=(220, 20, 20))
+        self.assertAlmostEqual(BOT.measure_hp(image, [0, 0, 100, 10]), 0.80, places=2)
+
     def test_requires_hp_drop_and_player_color(self):
         cfg = {
             "detection": {

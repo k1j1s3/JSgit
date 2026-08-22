@@ -89,18 +89,22 @@ def measure_hp(image: Image.Image, rect: list[int]) -> float:
             if red_hp or green_hp:
                 filled_pixels += 1
         occupied.append(filled_pixels >= max(1, height // 5))
-    # Small gaps are normally caused by the white HP text.
-    last = -1
-    gap = 0
-    for x, filled in enumerate(occupied):
-        if filled:
-            last = x
-            gap = 0
-        elif last >= 0:
-            gap += 1
-            if gap > 18:
-                break
-    return max(0.0, min(1.0, (last + 1) / max(1, width)))
+    # Ignore isolated colored UI pixels before/after the bar.  The actual bar
+    # is the densest horizontal cluster; short holes come from HP text.
+    filled_x = [x for x, filled in enumerate(occupied) if filled]
+    if not filled_x:
+        return 0.0
+    clusters = []
+    cluster = [filled_x[0]]
+    for x in filled_x[1:]:
+        if x - cluster[-1] - 1 <= 4:
+            cluster.append(x)
+        else:
+            clusters.append(cluster)
+            cluster = [x]
+    clusters.append(cluster)
+    bar = max(clusters, key=lambda values: (len(values), values[-1] - values[0]))
+    return max(0.0, min(1.0, (bar[-1] + 1) / max(1, width)))
 
 
 def count_cyan(image: Image.Image, rect: list[int]) -> int:
